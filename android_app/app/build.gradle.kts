@@ -19,7 +19,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("fixedDebug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "debug"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("fixedDebug")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
