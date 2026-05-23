@@ -1,8 +1,20 @@
 #!/bin/sh
 
-# Gradle wrapper auto-bootstrap
+# Resolve the directory containing this script
+PRG="$0"
+while [ -h "$PRG" ]; do
+    ls=$(ls -ld "$PRG")
+    link=$(expr "$ls" : '.*-> \(.*\)$')
+    if expr "$link" : '/.*' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=$(dirname "$PRG")/"$link"
+    fi
+done
 
-APP_HOME=$( cd "${0%[/\\]*}" > /dev/null && cd .. && pwd )
+# Absolute path of the gradlew directory (project root)
+APP_HOME=$(cd "$(dirname "$PRG")" > /dev/null 2>&1 && pwd)
+
 WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
 WRAPPER_PROPS="$APP_HOME/gradle/wrapper/gradle-wrapper.properties"
 
@@ -13,10 +25,11 @@ else
     JAVACMD="java"
 fi
 
-# Bootstrap: download wrapper jar from Gradle distribution if not present
+# Bootstrap: download wrapper jar if not present
 if [ ! -f "$WRAPPER_JAR" ] || [ ! -s "$WRAPPER_JAR" ]; then
     echo "==> Bootstrapping: downloading Gradle wrapper..."
-    
+
+    # Read distribution URL from properties
     if [ -f "$WRAPPER_PROPS" ]; then
         DIST_URL=$(grep "^distributionUrl" "$WRAPPER_PROPS" | sed 's/.*=//' | tr -d ' ')
         DIST_URL=$(echo "$DIST_URL" | sed 's/\\//g')
@@ -24,9 +37,10 @@ if [ ! -f "$WRAPPER_JAR" ] || [ ! -s "$WRAPPER_JAR" ]; then
     if [ -z "$DIST_URL" ]; then
         DIST_URL="https://services.gradle.org/distributions/gradle-8.7-bin.zip"
     fi
-    
+
     TMP_DIR=$(mktemp -d)
-    
+    mkdir -p "$(dirname "$WRAPPER_JAR")"
+
     if command -v curl > /dev/null 2>&1; then
         curl -sL --connect-timeout 30 "$DIST_URL" -o "$TMP_DIR/gradle.zip"
     elif command -v wget > /dev/null 2>&1; then
@@ -36,12 +50,15 @@ if [ ! -f "$WRAPPER_JAR" ] || [ ! -s "$WRAPPER_JAR" ]; then
         rm -rf "$TMP_DIR"
         exit 1
     fi
-    
+
     unzip -p "$TMP_DIR/gradle.zip" "*/gradle/wrapper/gradle-wrapper.jar" > "$WRAPPER_JAR" 2>/dev/null
     rm -rf "$TMP_DIR"
-    
+
     if [ ! -f "$WRAPPER_JAR" ] || [ ! -s "$WRAPPER_JAR" ]; then
         echo "ERROR: Failed to bootstrap Gradle wrapper"
+        echo "APP_HOME=$APP_HOME"
+        echo "WRAPPER_JAR=$WRAPPER_JAR"
+        ls -la "$APP_HOME/gradle/wrapper/" 2>/dev/null || echo "gradle/wrapper/ not found"
         exit 1
     fi
     echo "==> Wrapper jar ready."
