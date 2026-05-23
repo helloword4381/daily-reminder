@@ -135,37 +135,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 尝试从多个来源获取版本信息（按可用性排序，国内友好） */
-    private suspend fun fetchVersionJson(): String? = withContext(kotlinx.coroutines.Dispatchers.IO) {
+    /** 尝试从多个来源获取版本信息（使用 URI 构造函数避免 @ 解析错误） */
+    private suspend fun fetchVersionJson(): String? {
         val urls = listOf(
             "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/version.json",
             "https://api.github.com/repos/helloword4381/daily-reminder/releases/latest"
         )
-        for (url in urls) {
+        for (urlStr in urls) {
             var conn: java.net.HttpURLConnection? = null
             try {
-                conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn = java.net.URI(urlStr).toURL().openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 5000
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
                 conn.instanceFollowRedirects = true
-                if (url.contains("api.github.com")) {
+                if (urlStr.contains("api.github.com")) {
                     conn.setRequestProperty("Accept", "application/vnd.github+json")
                 }
-
                 val code = conn.responseCode
                 if (code !in 200..299) continue
-
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
-                if (text.isNotBlank() && text.length > 10) return@withContext text
+                if (text.isNotBlank() && text.length > 10) return text
             } catch (_: Exception) {
                 continue
             } finally {
                 conn?.disconnect()
             }
         }
-        return@withContext null
+        return null
     }
 
     private fun parseVersionJson(json: String, isGithubApi: Boolean): Triple<String, String, String> {
