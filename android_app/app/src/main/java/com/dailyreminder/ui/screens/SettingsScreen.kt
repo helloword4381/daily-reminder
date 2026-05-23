@@ -137,33 +137,68 @@ fun SettingsScreen(settings: SettingsManager) {
                 }
             }
 
-            // 后台优化（针对 Realme/OPPO/小米等机型）
+            // 后台优化（适配所有系统）
             Text("后台优化", style = MaterialTheme.typography.titleLarge)
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        "部分手机（Realme、OPPO、小米等）会自动杀死后台服务导致提醒失效。请关闭电池优化：",
+                        "部分系统会自动杀死后台服务导致提醒失效。请按以下步骤设置：",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(Modifier.height(12.dp))
-                    Button(
+
+                    // 按钮1：关闭电池优化
+                    OutlinedButton(
                         onClick = {
-                            val context = androidx.compose.ui.platform.LocalContext.current
+                            val ctx = androidx.compose.ui.platform.LocalContext.current
                             val intent = android.content.Intent(
                                 android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                                android.net.Uri.parse("package:${context.packageName}")
+                                android.net.Uri.parse("package:${ctx.packageName}")
                             ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
-                            try { context.startActivity(intent) } catch (_: Exception) { }
+                            try { ctx.startActivity(intent) } catch (_: Exception) { }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(androidx.compose.material.icons.Icons.Default.BatteryStd, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("关闭电池优化")
+                        Text("① 关闭电池优化")
                     }
                     Spacer(Modifier.height(8.dp))
+
+                    // 按钮2：打开应用系统设置页（自启动/后台权限）
+                    OutlinedButton(
+                        onClick = {
+                            val ctx = androidx.compose.ui.platform.LocalContext.current
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                android.net.Uri.parse("package:${ctx.packageName}")
+                            ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                            try { ctx.startActivity(intent) } catch (_: Exception) { }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(androidx.compose.material.icons.Icons.Default.Settings, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("② 打开应用系统设置")
+                    }
+                    Spacer(Modifier.height(12.dp))
+
+                    // 各品牌设置路径
+                    Text("各品牌详细路径：", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        "如果仍不生效，请在手机「设置→应用→日常助手→耗电管理」中\n• 允许自启动\n• 允许后台运行\n• 不受电池优化限制",
+                        buildString {
+                            appendLine("📱 Realme / OPPO：设置 → 应用 → 日常助手 → 耗电管理")
+                            appendLine("    → 允许自启动 / 允许后台运行 / 关闭电池优化")
+                            appendLine("📱 小米 / Redmi：设置 → 应用 → 应用管理 → 日常助手")
+                            appendLine("    → 省电策略 → 无限制 / 自启动 → 允许")
+                            appendLine("📱 华为 / 荣耀：设置 → 应用 → 应用启动管理 → 日常助手")
+                            appendLine("    → 关闭「自动管理」→ 允许自启/关联启动/后台活动")
+                            appendLine("📱 vivo / iQOO：设置 → 应用与权限 → 应用管理 → 日常助手")
+                            appendLine("    → 耗电管理 → 后台高耗电允许 / 自启动 → 允许")
+                            appendLine("📱 三星：设置 → 电池 → 后台使用限制 → 未使用的应用 → 关闭")
+                            appendLine("    设置 → 应用 → 日常助手 → 电池 → 不受限制")
+                        }.trimEnd(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
