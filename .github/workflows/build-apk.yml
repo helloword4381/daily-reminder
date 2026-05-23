@@ -1,9 +1,5 @@
 name: Build Android APK
 
-# 触发条件：
-# - 手动点击 "Run workflow" 按钮
-# - 每次推送 main 分支且修改了 android_app/ 或 common/
-
 on:
   workflow_dispatch:
   push:
@@ -11,6 +7,11 @@ on:
     paths:
       - 'android_app/**'
       - 'common/**'
+
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
+  PUB_HOSTED_URL: https://pub.flutter-io.cn
 
 jobs:
   build:
@@ -25,13 +26,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install flet
-          pip install -r requirements.txt
 
-      - name: Set up Java 17 (required by Android SDK)
+      - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -40,10 +40,18 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Install Android SDK components
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Accept Android SDK licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+
       - name: Build APK
         run: |
           cd android_app
-          flet build apk --verbose
+          yes | flet build apk --verbose
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
