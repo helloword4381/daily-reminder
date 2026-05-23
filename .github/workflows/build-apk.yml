@@ -75,7 +75,7 @@ jobs:
         run: |
           cd android_app
           # 👈 只构建arm64架构（99%的手机都支持），减少一半工作量
-          yes | flet build apk --verbose --target-platform android-arm64 2>&1 | tee build.log
+          yes | flet build apk --verbose 2>&1 | tee build.log
         env:
           JAVA_OPTS: ${{ env.JAVA_OPTS }}
           GRADLE_OPTS: ${{ env.GRADLE_OPTS }}
