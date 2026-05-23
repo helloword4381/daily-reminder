@@ -1,0 +1,53 @@
+name: Build Android APK
+
+# 触发条件：
+# - 手动点击 "Run workflow" 按钮
+# - 每次推送 main 分支且修改了 android_app/ 或 common/
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'android_app/**'
+      - 'common/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install flet
+          pip install -r requirements.txt
+
+      - name: Set up Java 17 (required by Android SDK)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build APK
+        run: |
+          cd android_app
+          flet build apk --verbose
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-reminder-apk
+          path: android_app/build/apk/
+          retention-days: 30
