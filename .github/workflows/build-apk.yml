@@ -43,7 +43,7 @@ jobs:
         id: build
         run: |
           cd android_app
-          gradle assembleRelease --no-daemon --build-cache
+          gradle assembleDebug --no-daemon --build-cache
           # 查找 APK 并保存路径
           APK=$(find . -name "*.apk" -type f | head -1)
           echo "APK_PATH=$APK" >> $GITHUB_ENV
@@ -52,8 +52,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.${{ github.run_number }}
-          name: 日常提醒 v1.${{ github.run_number }}
+          tag_name: build-${{ github.run_number }}
+          name: 构建 #${{ github.run_number }}
           body: |
             📱 自动构建 Android APK
             
