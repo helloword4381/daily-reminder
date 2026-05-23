@@ -94,7 +94,17 @@ fun DailyReminderApp(viewModel: MainViewModel = viewModel()) {
             )
         }
         composable(Screen.Settings.route) {
-            SettingsScreen(settings = viewModel.settings)
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val version = remember {
+                try {
+                    ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: ""
+                } catch (_: Exception) { "" }
+            }
+            SettingsScreen(
+                settings = viewModel.settings,
+                currentVersion = version,
+                onCheckUpdate = { viewModel.checkForUpdate() }
+            )
         }
     }
 }
@@ -249,7 +259,17 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
                 )
             }
             composable(Screen.Settings.route) {
-                SettingsScreen(settings = viewModel.settings)
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val version = remember {
+                    try {
+                        ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: ""
+                    } catch (_: Exception) { "" }
+                }
+                SettingsScreen(
+                    settings = viewModel.settings,
+                    currentVersion = version,
+                    onCheckUpdate = { viewModel.checkForUpdate() }
+                )
             }
         }
     }

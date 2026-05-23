@@ -12,7 +12,11 @@ import com.dailyreminder.SettingsManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(settings: SettingsManager) {
+fun SettingsScreen(
+    settings: SettingsManager,
+    currentVersion: String = "",
+    onCheckUpdate: () -> Unit = {}
+) {
     var morningRem by remember { mutableStateOf(settings.morningReminder) }
     var morningH by remember { mutableStateOf(settings.morningHour) }
     var morningM by remember { mutableStateOf(settings.morningMinute) }
@@ -211,9 +215,54 @@ fun SettingsScreen(settings: SettingsManager) {
             Text("关于", style = MaterialTheme.typography.titleLarge)
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("日常助手 v1.2.4", style = MaterialTheme.typography.bodyMedium)
-                    Text("数据全部保存在本地", style = MaterialTheme.typography.bodySmall,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("日常助手", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (currentVersion.isNotBlank()) "v$currentVersion" else "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text("数据全部保存在本地",
+                        style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+
+                    // 按钮行
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onCheckUpdate,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("检查更新")
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                // 打开浏览器看 Releases 作为更新日志
+                                val ctx = androidx.compose.ui.platform.LocalContext.current
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://github.com/helloword4381/daily-reminder/releases")
+                                ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                                try { ctx.startActivity(intent) } catch (_: Exception) { }
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Info, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("更新日志")
+                        }
+                    }
                 }
             }
         }
