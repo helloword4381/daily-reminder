@@ -12,7 +12,8 @@ env:
   ANDROID_HOME: /usr/local/lib/android/sdk
   FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
   PUB_HOSTED_URL: https://pub.flutter-io.cn
-  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2G -Xms1G -XX:+UseParallelGC" -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false
+  _JAVA_OPTIONS: -Xmx2G -Xms1G
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false
 
 jobs:
   build:
@@ -69,6 +70,17 @@ jobs:
           key: flet-flutter-${{ runner.os }}
           restore-keys: |
             flet-flutter-${{ runner.os }}-
+
+      - name: Configure Gradle memory limits
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/gradle.properties << 'EOF'
+org.gradle.jvmargs=-Xmx2G -Xms1G -XX:+UseParallelGC
+org.gradle.daemon=false
+org.gradle.parallel=false
+EOF
+          echo "Gradle configured:"
+          cat ~/.gradle/gradle.properties
 
       - name: Build APK
         id: build
