@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,20 +44,21 @@ jobs:
         run: |
           cd android_app
           gradle assembleRelease --no-daemon --build-cache
-          echo "=== APK search ==="
-          find . -name "*.apk" -type f 2>/dev/null
-          echo "=== AAB search ==="
-          find . -name "*.aab" -type f 2>/dev/null
-          echo "=== build dir ==="
-          ls -la app/build/outputs/ 2>/dev/null || echo "No outputs dir"
-          ls -la app/build/outputs/apk/ 2>/dev/null || echo "No apk dir"
-          ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "No release dir"
+          # 查找 APK 并保存路径
+          APK=$(find . -name "*.apk" -type f | head -1)
+          echo "APK_PATH=$APK" >> $GITHUB_ENV
+          echo "Found APK: $APK"
 
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: daily-reminder-apk
-          path: android_app/**/*.apk
-          if-no-files-found: error
-          retention-days: 30
+          tag_name: v1.${{ github.run_number }}
+          name: 日常提醒 v1.${{ github.run_number }}
+          body: |
+            📱 自动构建 Android APK
+            
+            构建时间：${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
+            提交：${{ github.sha }}
+          files: android_app/${{ env.APK_PATH }}
+          generate_release_notes: false
+          make_latest: true
