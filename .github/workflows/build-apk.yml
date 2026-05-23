@@ -12,6 +12,7 @@ env:
   ANDROID_HOME: /usr/local/lib/android/sdk
   FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
   PUB_HOSTED_URL: https://pub.flutter-io.cn
+  GRADLE_OPTS: -Dorg.gradle.jvmargs="-Xmx2G -Xms1G -XX:+UseParallelGC" -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false
 
 jobs:
   build:
@@ -42,18 +43,48 @@ jobs:
 
       - name: Install Android SDK components
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "platform-tools"
 
       - name: Accept Android SDK licenses
         run: |
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
 
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/pubspec.yaml') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Cache Flutter SDK
+        uses: actions/cache@v4
+        with:
+          path: ~/.flet
+          key: flet-flutter-${{ runner.os }}
+          restore-keys: |
+            flet-flutter-${{ runner.os }}-
+
       - name: Build APK
+        id: build
         run: |
           cd android_app
-          yes | flet build apk --verbose
+          yes | flet build apk --verbose 2>&1 | tail -50
+
+      - name: Show full build log if failed
+        if: failure()
+        run: |
+          echo "=== Build failed. Checking logs... ==="
+          find ~/.flet -name "*.log" -o -name "build.log" 2>/dev/null | head -5
+          ls -la android_app/build/ 2>/dev/null || echo "No build directory"
 
       - name: Upload APK artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: daily-reminder-apk
