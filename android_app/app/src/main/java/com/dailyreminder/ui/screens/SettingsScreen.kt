@@ -25,6 +25,9 @@ fun SettingsScreen(
     var afternoonM by remember { mutableStateOf(settings.afternoonMinute) }
     var screenRem by remember { mutableStateOf(settings.screenOnReminder) }
 
+    // 获取上下文
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+
     // 时间选择器弹出
     var showMorningPicker by remember { mutableStateOf(false) }
     var showAfternoonPicker by remember { mutableStateOf(false) }
@@ -154,7 +157,6 @@ fun SettingsScreen(
                     // 按钮1：关闭电池优化
                     OutlinedButton(
                         onClick = {
-                            val ctx = androidx.compose.ui.platform.LocalContext.current
                             val intent = android.content.Intent(
                                 android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                                 android.net.Uri.parse("package:${ctx.packageName}")
@@ -172,7 +174,6 @@ fun SettingsScreen(
                     // 按钮2：打开应用系统设置页（自启动/后台权限）
                     OutlinedButton(
                         onClick = {
-                            val ctx = androidx.compose.ui.platform.LocalContext.current
                             val intent = android.content.Intent(
                                 android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                 android.net.Uri.parse("package:${ctx.packageName}")
@@ -248,8 +249,6 @@ fun SettingsScreen(
                         }
                         OutlinedButton(
                             onClick = {
-                                // 打开浏览器看 Releases 作为更新日志
-                                val ctx = androidx.compose.ui.platform.LocalContext.current
                                 val intent = android.content.Intent(
                                     android.content.Intent.ACTION_VIEW,
                                     android.net.Uri.parse("https://github.com/helloword4381/daily-reminder/releases")
