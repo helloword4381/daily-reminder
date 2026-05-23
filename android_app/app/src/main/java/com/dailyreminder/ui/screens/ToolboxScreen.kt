@@ -14,6 +14,16 @@ import androidx.compose.ui.unit.dp
 import com.dailyreminder.data.db.TowerCalcEntity
 import kotlin.math.abs
 import kotlin.math.tan
+// roundToInt not used
+
+// 将 DD.MMSSss 格式（如 35.25156 = 35°25'15.6"）转换为总秒数
+private fun dmsToSeconds(value: Double): Double {
+    val deg = value.toInt()
+    val frac = abs(value - deg) * 100.0
+    val min = frac.toInt()
+    val sec = (frac - min) * 100.0
+    return deg * 3600.0 + min * 60.0 + sec
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -126,11 +136,15 @@ fun TowerCalcTab(
                     val d3 = data3.toDoubleOrNull() ?: return@Button
                     val d4 = data4.toDoubleOrNull() ?: return@Button
 
-                    // 左右偏位
-                    val angleDeg = (d3 - d4) / 3600.0
+                    // 将方位角从 DD.MMSSss 格式转换为秒
+                    val d3Sec = dmsToSeconds(d3)
+                    val d4Sec = dmsToSeconds(d4)
+
+                    // 左右偏位（角度差值已为秒，除以3600转回度）
+                    val angleDeg = (d3Sec - d4Sec) / 3600.0
                     val lrRaw = (d1 + d2) / 2.0 * tan(angleDeg * kotlin.math.PI / 180.0)
                     val lrMm = abs(lrRaw * 1000.0)
-                    val lrDir = if (d3 > d4) "向右" else "向左"
+                    val lrDir = if (d3Sec > d4Sec) "向右" else "向左"
                     resultLR = "${lrDir}偏位 ${"%.1f".format(lrMm)} mm"
 
                     // 前后偏位
