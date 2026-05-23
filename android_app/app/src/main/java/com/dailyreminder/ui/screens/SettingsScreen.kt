@@ -137,13 +137,46 @@ fun SettingsScreen(settings: SettingsManager) {
                 }
             }
 
+            // 后台优化（针对 Realme/OPPO/小米等机型）
+            Text("后台优化", style = MaterialTheme.typography.titleLarge)
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "部分手机（Realme、OPPO、小米等）会自动杀死后台服务导致提醒失效。请关闭电池优化：",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                android.net.Uri.parse("package:${context.packageName}")
+                            ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                            try { context.startActivity(intent) } catch (_: Exception) { }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(androidx.compose.material.icons.Icons.Default.BatteryStd, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("关闭电池优化")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "如果仍不生效，请在手机「设置→应用→日常助手→耗电管理」中\n• 允许自启动\n• 允许后台运行\n• 不受电池优化限制",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
 
             // 应用信息
             Text("关于", style = MaterialTheme.typography.titleLarge)
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("日常提醒 v1.0", style = MaterialTheme.typography.bodyMedium)
+                    Text("日常助手 v1.2.4", style = MaterialTheme.typography.bodyMedium)
                     Text("数据全部保存在本地", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
