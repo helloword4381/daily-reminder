@@ -107,6 +107,44 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
     val todayPending by viewModel.todayPending.collectAsState()
     val diaryEntries by viewModel.diaryEntries.collectAsState()
     val towerRecords by viewModel.towerRecords.collectAsState()
+    val updateInfo by viewModel.updateInfo.collectAsState()
+    val checkingUpdate by viewModel.checkingUpdate.collectAsState()
+
+    // 启动时检查更新
+    LaunchedEffect(Unit) { viewModel.checkForUpdate() }
+
+    // 更新弹窗
+    if (!checkingUpdate && updateInfo.hasUpdate) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("发现新版本") },
+            text = {
+                Column {
+                    Text("${updateInfo.title} (${updateInfo.version})",
+                        style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(8.dp))
+                    Text(updateInfo.notes.ifBlank { "请前往 GitHub 下载更新" },
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    // 打开浏览器下载
+                    val intent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(updateInfo.downloadUrl.ifBlank {
+                            "https://github.com/helloword4381/daily-reminder/releases"
+                        })
+                    ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    viewModel.getApplication<android.app.Application>()
+                        .startActivity(intent)
+                }) { Text("立即更新") }
+            },
+            dismissButton = {
+                TextButton(onClick = { /* 跳过此版本 */ }) { Text("稍后") }
+            }
+        )
+    }
 
     Scaffold(
         bottomBar = {

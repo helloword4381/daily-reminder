@@ -84,6 +84,68 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { towerDao.deleteById(id) }
     }
 
+    // === 更新信息 ===
+    data class UpdateInfo(
+        val hasUpdate: Boolean = false,
+        val version: String = "",
+        val title: String = "",
+        val notes: String = "",
+        val downloadUrl: String = ""
+    )
+
+    private val _updateInfo = MutableStateFlow(UpdateInfo())
+    val updateInfo: StateFlow<UpdateInfo> = _updateInfo.asStateFlow()
+
+    private val _checkingUpdate = MutableStateFlow(true)
+    val checkingUpdate: StateFlow<Boolean> = _checkingUpdate.asStateFlow()
+
+    fun checkForUpdate() {
+        viewModelScope.launch {
+            try {
+                val currentVer = getApplication<Application>().packageManager
+                    .getPackageInfo(getApplication<Application>().packageName, 0)
+                    .versionName ?: "0.0.0"
+                val url = java.net.URL("https://api.github.com/repos/helloword4381/daily-reminder/releases/latest")
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                conn.requestMethod = "GET"
+                conn.setRequestProperty("Accept", "application/json")
+                val json = conn.inputStream.bufferedReader().use { it.readText() }
+                conn.disconnect()
+
+                // 极简 JSON 解析（不依赖第三方库）
+                val tag = json.lines().firstOrNull { it.trimStart().startsWith("\"tag_name\"") }
+                    ?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+                val relName = json.lines().firstOrNull { it.trimStart().startsWith("\"name\"") }
+                    ?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+                val relBody = json.lines().firstOrNull { it.trimStart().startsWith("\"body\"") }
+                    ?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+                // 提取第一个 APK 下载链接（browser_download_url）
+                val dlUrl = json.lines().firstOrNull {
+                    it.trimStart().startsWith("\"browser_download_url\"") &&
+                    it.contains(".apk")
+                }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+
+                // 比较版本号
+                val remoteVer = tag.removePrefix("v").removePrefix("build-")
+                val hasNew = remoteVer > currentVer
+
+                _updateInfo.value = UpdateInfo(
+                    hasUpdate = hasNew,
+                    version = remoteVer,
+                    title = relName,
+                    notes = relBody,
+                    downloadUrl = dlUrl
+                )
+            } catch (_: Exception) {
+                _updateInfo.value = UpdateInfo()
+            } finally {
+                _checkingUpdate.value = false
+            }
+        }
+    }
+
     // === 导出分享（CSV → Android SharePicker） ===
     fun shareTowerRecords(records: List<TowerCalcEntity>) {
         viewModelScope.launch {
