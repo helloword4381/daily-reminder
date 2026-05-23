@@ -135,51 +135,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 尝试从多个来源获取版本信息（使用 URI 构造函数避免 @ 解析错误） */
+    /** 从 raw.githubusercontent.com 直接读取 version.json，jsDelivr 备用 */
     private suspend fun fetchVersionJson(): String? {
         val urls = listOf(
-            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/version.json",
-            "https://api.github.com/repos/helloword4381/daily-reminder/releases/latest"
+            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json",
+            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/version.json"
         )
         for (urlStr in urls) {
             var conn: java.net.HttpURLConnection? = null
             try {
-                conn = java.net.URI(urlStr).toURL().openConnection() as java.net.HttpURLConnection
+                conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 5000
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
                 conn.instanceFollowRedirects = true
-                if (urlStr.contains("api.github.com")) {
-                    conn.setRequestProperty("Accept", "application/vnd.github+json")
-                }
                 val code = conn.responseCode
-                if (code !in 200..299) continue
-                val text = conn.inputStream.bufferedReader().use { it.readText() }
-                if (text.isNotBlank() && text.length > 10) return text
-            } catch (_: Exception) {
-                continue
-            } finally {
-                conn?.disconnect()
-            }
+                if (code in 200..299) {
+                    val text = conn.inputStream.bufferedReader().use { it.readText() }
+                    if (text.isNotBlank() && text.length > 10) return text
+                }
+            } catch (_: Exception) { } finally { conn?.disconnect() }
         }
         return null
     }
 
-    private fun parseVersionJson(json: String, isGithubApi: Boolean): Triple<String, String, String> {
-        fun extract(key: String) = json.lines().firstOrNull {
+    private fun simpleExtract(json: String, key: String): String {
+        return json.lines().firstOrNull {
             it.trimStart().startsWith("\"$key\"")
         }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
-
-        if (isGithubApi) {
-            val tag = extract("tag_name")
-            val dlUrl = json.lines().firstOrNull {
-                it.trimStart().startsWith("\"browser_download_url\"") && it.contains(".apk")
-            }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
-            return Triple(tag.removePrefix("v").removePrefix("build-"), extract("body"), dlUrl)
-        } else {
-            return Triple(extract("version"), extract("notes"), extract("downloadUrl"))
-        }
     }
 
     fun checkForUpdate() {
@@ -197,8 +181,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val isApi = json.contains("\"tag_name\"")
-                val (remoteVer, notes, dlUrl) = parseVersionJson(json, isApi)
+                val remoteVer = simpleExtract(json, "version")
+                val notes = simpleExtract(json, "notes")
+                val dlUrl = simpleExtract(json, "downloadUrl")
                 val hasNew = isNewerVersion(remoteVer, currentVer)
 
                 _updateInfo.value = UpdateInfo(

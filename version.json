@@ -1,6 +1,6 @@
 {
-  "version": "1.2.15",
-  "title": "日常助手 v1.2.15",
-  "notes": "修复检查更新网络请求（HTTPS redirect 超时10s 响应码检查）\nraw.githubusercontent 源排第一\n新增必要权限引导页\n新增闹钟权限请求\nalarm scheduling try-catch",
-  "downloadUrl": "https://github.com/helloword4381/daily-reminder/releases/download/v1.2.15/日常助手_v1.2.15_build21.apk"
+  "version": "1.2.17",
+  "title": "日常助手 v1.2.17",
+  "notes": "优化更新检查：直连 raw.githubusercontent + jsDelivr 备用\n移除 GitHub API 依赖\n简化 JSON 解析代码",
+  "downloadUrl": "https://github.com/helloword4381/daily-reminder/releases/download/v1.2.17/日常助手_v1.2.17_build23.apk"
 }
