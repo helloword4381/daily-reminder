@@ -121,11 +121,41 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
     val updateInfo by viewModel.updateInfo.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val downloadProgress by viewModel.downloadProgress.collectAsState()
+    val toastMsg by viewModel.toastMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // 启动时检查更新 + 检查待安装 APK
     LaunchedEffect(Unit) {
         viewModel.checkForUpdate()
         viewModel.checkPendingInstall()
+    }
+
+    // Toast 消息
+    LaunchedEffect(toastMsg) {
+        if (toastMsg.isNotBlank()) {
+            snackbarHostState.showSnackbar(toastMsg, duration = SnackbarDuration.Short)
+        }
+    }
+
+    // 更新弹窗 - 检查中
+    if (updateState == com.dailyreminder.MainViewModel.UpdateState.CHECKING) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("检查更新") },
+            text = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text("正在检查最新版本...")
+                }
+            },
+            confirmButton = { },
+            dismissButton = { }
+        )
     }
 
     // 更新弹窗 - 下载完成
@@ -199,6 +229,7 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             NavigationBar {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()

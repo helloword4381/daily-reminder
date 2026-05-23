@@ -107,8 +107,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _downloadFile = MutableStateFlow<File?>(null)
     val downloadFile: StateFlow<File?> = _downloadFile.asStateFlow()
 
+    private val _toastMessage = MutableStateFlow("")
+    val toastMessage: StateFlow<String> = _toastMessage.asStateFlow()
+
     companion object {
         private const val APK_FILENAME = "update.apk"
+    }
+
+    /** 语义化版本比较，返回 true 如果 remote > current */
+    private fun isNewerVersion(remote: String, current: String): Boolean {
+        val rParts = remote.split(".").map { it.toIntOrNull() ?: 0 }
+        val cParts = current.split(".").map { it.toIntOrNull() ?: 0 }
+        for (i in 0 until maxOf(rParts.size, cParts.size)) {
+            val r = rParts.getOrElse(i) { 0 }
+            val c = cParts.getOrElse(i) { 0 }
+            if (r != c) return r > c
+        }
+        return false
+    }
+
+    /** 清除 Toast 消息（延迟） */
+    private fun showToast(msg: String, durationMs: Long = 2500) {
+        _toastMessage.value = msg
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(durationMs)
+            _toastMessage.value = ""
+        }
     }
 
     fun checkForUpdate() {
@@ -136,7 +160,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
 
                 val remoteVer = tag.removePrefix("v").removePrefix("build-")
-                val hasNew = remoteVer > currentVer
+                val hasNew = isNewerVersion(remoteVer, currentVer)
 
                 _updateInfo.value = UpdateInfo(
                     hasUpdate = hasNew,
@@ -145,10 +169,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     notes = extractJson("body"),
                     downloadUrl = dlUrl
                 )
-                _updateState.value = if (hasNew) UpdateState.AVAILABLE else UpdateState.IDLE
+                if (hasNew) {
+                    _updateState.value = UpdateState.AVAILABLE
+                } else {
+                    _updateState.value = UpdateState.IDLE
+                    showToast("已是最新版本 v$currentVer")
+                }
             } catch (_: Exception) {
                 _updateInfo.value = UpdateInfo()
                 _updateState.value = UpdateState.IDLE
+                showToast("检查更新失败，请检查网络")
             }
         }
     }
