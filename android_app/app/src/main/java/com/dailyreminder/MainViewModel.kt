@@ -136,28 +136,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** 尝试从多个来源获取版本信息（按可用性排序，国内友好） */
-    private suspend fun fetchVersionJson(): String? {
+    private suspend fun fetchVersionJson(): String? = withContext(kotlinx.coroutines.Dispatchers.IO) {
         val urls = listOf(
-            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/version.json",
             "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json",
+            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/version.json",
             "https://api.github.com/repos/helloword4381/daily-reminder/releases/latest"
         )
         for (url in urls) {
+            var conn: java.net.HttpURLConnection? = null
             try {
-                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 6000
-                conn.readTimeout = 6000
+                conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
                 conn.requestMethod = "GET"
-                conn.setRequestProperty("User-Agent", "DailyReminder")
+                conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
+                conn.instanceFollowRedirects = true
                 if (url.contains("api.github.com")) {
-                    conn.setRequestProperty("Accept", "application/json")
+                    conn.setRequestProperty("Accept", "application/vnd.github+json")
                 }
+
+                val code = conn.responseCode
+                if (code !in 200..299) continue
+
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
-                conn.disconnect()
-                if (text.isNotBlank()) return text
-            } catch (_: Exception) { }
+                if (text.isNotBlank() && text.length > 10) return@withContext text
+            } catch (_: Exception) {
+                continue
+            } finally {
+                conn?.disconnect()
+            }
         }
-        return null
+        return@withContext null
     }
 
     private fun parseVersionJson(json: String, isGithubApi: Boolean): Triple<String, String, String> {
