@@ -135,6 +135,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** 尝试从多个来源获取版本信息（按可用性排序，国内友好） */
+    private suspend fun fetchVersionJson(): String? {
+        val urls = listOf(
+            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/version.json",
+            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json",
+            "https://api.github.com/repos/helloword4381/daily-reminder/releases/latest"
+        )
+        for (url in urls) {
+            try {
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 6000
+                conn.readTimeout = 6000
+                conn.requestMethod = "GET"
+                conn.setRequestProperty("User-Agent", "DailyReminder")
+                if (url.contains("api.github.com")) {
+                    conn.setRequestProperty("Accept", "application/json")
+                }
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                conn.disconnect()
+                if (text.isNotBlank()) return text
+            } catch (_: Exception) { }
+        }
+        return null
+    }
+
+    private fun parseVersionJson(json: String, isGithubApi: Boolean): Triple<String, String, String> {
+        fun extract(key: String) = json.lines().firstOrNull {
+            it.trimStart().startsWith("\"$key\"")
+        }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+
+        if (isGithubApi) {
+            val tag = extract("tag_name")
+            val dlUrl = json.lines().firstOrNull {
+                it.trimStart().startsWith("\"browser_download_url\"") && it.contains(".apk")
+            }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+            return Triple(tag.removePrefix("v").removePrefix("build-"), extract("body"), dlUrl)
+        } else {
+            return Triple(extract("version"), extract("notes"), extract("downloadUrl"))
+        }
+    }
+
     fun checkForUpdate() {
         _updateState.value = UpdateState.CHECKING
         viewModelScope.launch {
@@ -142,31 +183,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val currentVer = getApplication<Application>().packageManager
                     .getPackageInfo(getApplication<Application>().packageName, 0)
                     .versionName ?: "0.0.0"
-                val conn = java.net.URL("https://api.github.com/repos/helloword4381/daily-reminder/releases/latest").openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 8000
-                conn.readTimeout = 8000
-                conn.requestMethod = "GET"
-                conn.setRequestProperty("Accept", "application/json")
-                val json = conn.inputStream.bufferedReader().use { it.readText() }
-                conn.disconnect()
 
-                fun extractJson(key: String) = json.lines().firstOrNull {
-                    it.trimStart().startsWith("\"$key\"")
-                }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+                val json = fetchVersionJson()
+                if (json == null) {
+                    _updateState.value = UpdateState.IDLE
+                    showToast("检查更新失败，请检查网络")
+                    return@launch
+                }
 
-                val tag = extractJson("tag_name")
-                val dlUrl = json.lines().firstOrNull {
-                    it.trimStart().startsWith("\"browser_download_url\"") && it.contains(".apk")
-                }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
-
-                val remoteVer = tag.removePrefix("v").removePrefix("build-")
+                val isApi = json.contains("\"tag_name\"")
+                val (remoteVer, notes, dlUrl) = parseVersionJson(json, isApi)
                 val hasNew = isNewerVersion(remoteVer, currentVer)
 
                 _updateInfo.value = UpdateInfo(
                     hasUpdate = hasNew,
                     version = remoteVer,
-                    title = extractJson("name"),
-                    notes = extractJson("body"),
+                    title = "日常助手 v$remoteVer",
+                    notes = notes,
                     downloadUrl = dlUrl
                 )
                 if (hasNew) {
