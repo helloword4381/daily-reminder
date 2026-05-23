@@ -159,8 +159,18 @@ fun TowerCalcTab(
     var resultFB by remember { mutableStateOf("") }
     var calculated by remember { mutableStateOf(false) }
     var lastEntity by remember { mutableStateOf<TowerCalcEntity?>(null) }
+    val listState = rememberLazyListState()
+
+    // 计算后自动下滑显示结果
+    LaunchedEffect(calculated) {
+        if (calculated) {
+            // 结果卡片大约在第 9 个 item
+            listState.animateScrollToItem(9)
+        }
+    }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
