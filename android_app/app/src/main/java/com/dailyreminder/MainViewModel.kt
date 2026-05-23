@@ -93,20 +93,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val downloadUrl: String = ""
     )
 
+    enum class UpdateState { IDLE, CHECKING, AVAILABLE, DOWNLOADING, DOWNLOADED, INSTALLING }
+
     private val _updateInfo = MutableStateFlow(UpdateInfo())
     val updateInfo: StateFlow<UpdateInfo> = _updateInfo.asStateFlow()
 
-    private val _checkingUpdate = MutableStateFlow(true)
-    val checkingUpdate: StateFlow<Boolean> = _checkingUpdate.asStateFlow()
+    private val _updateState = MutableStateFlow(UpdateState.IDLE)
+    val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+
+    private val _downloadProgress = MutableStateFlow(0)
+    val downloadProgress: StateFlow<Int> = _downloadProgress.asStateFlow()
+
+    private val _downloadFile = MutableStateFlow<File?>(null)
+    val downloadFile: StateFlow<File?> = _downloadFile.asStateFlow()
+
+    companion object {
+        private const val APK_FILENAME = "update.apk"
+    }
 
     fun checkForUpdate() {
+        _updateState.value = UpdateState.CHECKING
         viewModelScope.launch {
             try {
                 val currentVer = getApplication<Application>().packageManager
                     .getPackageInfo(getApplication<Application>().packageName, 0)
                     .versionName ?: "0.0.0"
-                val url = java.net.URL("https://api.github.com/repos/helloword4381/daily-reminder/releases/latest")
-                val conn = url.openConnection() as java.net.HttpURLConnection
+                val conn = java.net.URL("https://api.github.com/repos/helloword4381/daily-reminder/releases/latest").openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 8000
                 conn.readTimeout = 8000
                 conn.requestMethod = "GET"
@@ -114,34 +126,118 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val json = conn.inputStream.bufferedReader().use { it.readText() }
                 conn.disconnect()
 
-                // 极简 JSON 解析（不依赖第三方库）
-                val tag = json.lines().firstOrNull { it.trimStart().startsWith("\"tag_name\"") }
-                    ?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
-                val relName = json.lines().firstOrNull { it.trimStart().startsWith("\"name\"") }
-                    ?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
-                val relBody = json.lines().firstOrNull { it.trimStart().startsWith("\"body\"") }
-                    ?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
-                // 提取第一个 APK 下载链接（browser_download_url）
-                val dlUrl = json.lines().firstOrNull {
-                    it.trimStart().startsWith("\"browser_download_url\"") &&
-                    it.contains(".apk")
+                fun extractJson(key: String) = json.lines().firstOrNull {
+                    it.trimStart().startsWith("\"$key\"")
                 }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
 
-                // 比较版本号
+                val tag = extractJson("tag_name")
+                val dlUrl = json.lines().firstOrNull {
+                    it.trimStart().startsWith("\"browser_download_url\"") && it.contains(".apk")
+                }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+
                 val remoteVer = tag.removePrefix("v").removePrefix("build-")
                 val hasNew = remoteVer > currentVer
 
                 _updateInfo.value = UpdateInfo(
                     hasUpdate = hasNew,
                     version = remoteVer,
-                    title = relName,
-                    notes = relBody,
+                    title = extractJson("name"),
+                    notes = extractJson("body"),
                     downloadUrl = dlUrl
                 )
+                _updateState.value = if (hasNew) UpdateState.AVAILABLE else UpdateState.IDLE
             } catch (_: Exception) {
                 _updateInfo.value = UpdateInfo()
-            } finally {
-                _checkingUpdate.value = false
+                _updateState.value = UpdateState.IDLE
+            }
+        }
+    }
+
+    fun downloadApk() {
+        val url = _updateInfo.value.downloadUrl ?: return
+        if (url.isBlank()) return
+        _updateState.value = UpdateState.DOWNLOADING
+        _downloadProgress.value = 0
+
+        viewModelScope.launch {
+            try {
+                val context = getApplication<Application>()
+                val file = File(context.cacheDir, APK_FILENAME)
+                if (file.exists()) file.delete()
+
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 15000
+                conn.readTimeout = 15000
+                conn.connect()
+
+                val totalSize = conn.contentLengthLong
+                val input = conn.inputStream
+                val output = file.outputStream()
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                var totalRead = 0L
+
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                    totalRead += bytesRead
+                    if (totalSize > 0) {
+                        _downloadProgress.value = ((totalRead * 100) / totalSize).toInt()
+                    }
+                }
+                output.close()
+                input.close()
+                conn.disconnect()
+
+                _downloadFile.value = file
+                _downloadProgress.value = 100
+                _updateState.value = UpdateState.DOWNLOADED
+            } catch (_: Exception) {
+                _updateState.value = UpdateState.AVAILABLE
+                _downloadProgress.value = 0
+            }
+        }
+    }
+
+    fun installApk() {
+        val file = _downloadFile.value ?: return
+        if (!file.exists()) return
+
+        _updateState.value = UpdateState.INSTALLING
+        val context = getApplication<Application>()
+        try {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) { }
+        _updateState.value = UpdateState.IDLE
+    }
+
+    fun cancelUpdate() {
+        _downloadFile.value?.delete()
+        _downloadFile.value = null
+        _downloadProgress.value = 0
+        _updateState.value = UpdateState.IDLE
+    }
+
+    fun postponeUpdate() {
+        // 保存 APK 路径，下次启动时检查
+        settings.pendingApkPath = _downloadFile.value?.absolutePath ?: ""
+        _updateState.value = UpdateState.IDLE
+    }
+
+    fun checkPendingInstall() {
+        val path = settings.pendingApkPath
+        if (path.isNotBlank()) {
+            val file = File(path)
+            if (file.exists()) {
+                _downloadFile.value = file
+                _updateState.value = UpdateState.DOWNLOADED
+            } else {
+                settings.pendingApkPath = ""
             }
         }
     }

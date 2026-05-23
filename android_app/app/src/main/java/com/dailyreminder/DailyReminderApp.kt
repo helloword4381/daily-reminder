@@ -108,13 +108,44 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
     val diaryEntries by viewModel.diaryEntries.collectAsState()
     val towerRecords by viewModel.towerRecords.collectAsState()
     val updateInfo by viewModel.updateInfo.collectAsState()
-    val checkingUpdate by viewModel.checkingUpdate.collectAsState()
+    val updateState by viewModel.updateState.collectAsState()
+    val downloadProgress by viewModel.downloadProgress.collectAsState()
 
-    // 启动时检查更新
-    LaunchedEffect(Unit) { viewModel.checkForUpdate() }
+    // 启动时检查更新 + 检查待安装 APK
+    LaunchedEffect(Unit) {
+        viewModel.checkForUpdate()
+        viewModel.checkPendingInstall()
+    }
 
-    // 更新弹窗
-    if (!checkingUpdate && updateInfo.hasUpdate) {
+    // 更新弹窗 - 下载完成
+    if (updateState == com.dailyreminder.MainViewModel.UpdateState.DOWNLOADED) {
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelUpdate() },
+            title = { Text("下载完成") },
+            text = {
+                Column {
+                    Text("新版本 ${updateInfo.version} 已准备好")
+                    Spacer(Modifier.height(4.dp))
+                    Divider()
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        TextButton(onClick = { viewModel.cancelUpdate() }) { Text("取消") }
+                        TextButton(onClick = { viewModel.postponeUpdate() }) { Text("稍后安装") }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.installApk() }) { Text("立即安装") }
+            },
+            dismissButton = { }
+        )
+    }
+
+    // 更新弹窗 - 发现新版本
+    if (updateState == com.dailyreminder.MainViewModel.UpdateState.AVAILABLE) {
         AlertDialog(
             onDismissRequest = { },
             title = { Text("发现新版本") },
@@ -123,26 +154,36 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
                     Text("${updateInfo.title} (${updateInfo.version})",
                         style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(8.dp))
-                    Text(updateInfo.notes.ifBlank { "请前往 GitHub 下载更新" },
+                    Text(updateInfo.notes.take(200).ifBlank { "有可用更新" },
                         style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    // 打开浏览器下载
-                    val intent = android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse(updateInfo.downloadUrl.ifBlank {
-                            "https://github.com/helloword4381/daily-reminder/releases"
-                        })
-                    ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
-                    viewModel.getApplication<android.app.Application>()
-                        .startActivity(intent)
-                }) { Text("立即更新") }
+                TextButton(onClick = { viewModel.downloadApk() }) { Text("立即更新") }
             },
             dismissButton = {
-                TextButton(onClick = { /* 跳过此版本 */ }) { Text("稍后") }
+                TextButton(onClick = { viewModel.cancelUpdate() }) { Text("稍后") }
             }
+        )
+    }
+
+    // 更新弹窗 - 下载进度
+    if (updateState == com.dailyreminder.MainViewModel.UpdateState.DOWNLOADING) {
+        AlertDialog(
+            onDismissRequest = { },
+            title = { Text("正在下载...") },
+            text = {
+                Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                    LinearProgressIndicator(
+                        progress = { downloadProgress / 100f },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text("$downloadProgress%")
+                }
+            },
+            confirmButton = { },
+            dismissButton = { }
         )
     }
 

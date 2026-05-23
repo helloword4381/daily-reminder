@@ -41,4 +41,9 @@ class SettingsManager(context: Context) {
     var screenOnReminder: Boolean
         get() = prefs.getBoolean("screen_on_reminder", true)
         set(v) = prefs.edit().putBoolean("screen_on_reminder", v).apply()
+
+    // 稍后安装的 APK 路径
+    var pendingApkPath: String
+        get() = prefs.getString("pending_apk_path", "") ?: ""
+        set(v) = prefs.edit().putString("pending_apk_path", v).apply()
 }
