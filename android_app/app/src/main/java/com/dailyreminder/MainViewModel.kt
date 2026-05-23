@@ -95,7 +95,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            val file = File(context.cacheDir, "扣塔计算记录.csv")
+            val file = File(context.cacheDir, "tower_share.csv")
+            if (file.exists()) file.delete()
             file.writeText(csv)
 
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
@@ -103,8 +104,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_STREAM, uri)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(Intent.createChooser(shareIntent, "分享扣塔记录"))
+            context.startActivity(Intent.createChooser(shareIntent, "分享扣塔记录").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
     }
 }

@@ -33,29 +33,112 @@ fun ToolboxScreen(
     onDelete: (String) -> Unit,
     onShare: ((List<TowerCalcEntity>) -> Unit)? = null
 ) {
-    var tab by remember { mutableIntStateOf(0) } // 0=计算 1=记录
+    var page by remember { mutableIntStateOf(0) } // 0=首页 1=扣塔计算
+    var tab by remember { mutableIntStateOf(0) } // 0=计算 1=记录（在page=1时有效）
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("工具箱") })
+            TopAppBar(
+                title = { Text(if (page == 0) "工具箱" else "扣塔计算") },
+                navigationIcon = {
+                    if (page > 0) {
+                        IconButton(onClick = { page = 0 }) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                        }
+                    }
+                }
+            )
         }
     ) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            // Tab row
-            TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 },
-                    text = { Text("扣塔计算") },
-                    icon = { Icon(Icons.Default.Calculate, null) })
-                Tab(selected = tab == 1, onClick = { tab = 1 },
-                    text = { Text("计算记录 (${records.size})") },
-                    icon = { Icon(Icons.Default.List, null) })
-            }
+            if (page == 0) {
+                // 工具箱首页 - 图标菜单
+                ToolboxHome(
+                    onOpenTowerCalc = { page = 1; tab = 0 }
+                )
+            } else {
+                // 扣塔计算 - Tab 切换
+                TabRow(selectedTabIndex = tab) {
+                    Tab(selected = tab == 0, onClick = { tab = 0 },
+                        text = { Text("计算") },
+                        icon = { Icon(Icons.Default.Calculate, null) })
+                    Tab(selected = tab == 1, onClick = { tab = 1 },
+                        text = { Text("记录 (${records.size})") },
+                        icon = { Icon(Icons.Default.List, null) })
+                }
 
-            when (tab) {
-                0 -> TowerCalcTab(records = records, onSave = onSave)
-                1 -> TowerRecordsTab(records = records, onDelete = onDelete, onShare = onShare)
+                when (tab) {
+                    0 -> TowerCalcTab(records = records, onSave = onSave)
+                    1 -> TowerRecordsTab(records = records, onDelete = onDelete, onShare = onShare)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ToolboxHome(onOpenTowerCalc: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("选择工具", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+
+        // 扣塔计算工具
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onOpenTowerCalc
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Calculate,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text("扣塔偏位计算", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "偏位 + 方位角分析",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // 未来可在此添加更多工具...
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.MoreHoriz,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text("更多工具即将上线", style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("敬请期待",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
     }

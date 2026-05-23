@@ -24,8 +24,6 @@ fun SettingsScreen(settings: SettingsManager) {
     // 时间选择器弹出
     var showMorningPicker by remember { mutableStateOf(false) }
     var showAfternoonPicker by remember { mutableStateOf(false) }
-    var pickerHour by remember { mutableIntStateOf(8) }
-    var pickerMinute by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("设置") }) }
@@ -157,49 +155,25 @@ fun SettingsScreen(settings: SettingsManager) {
         }
     }
 
-    // 早上时间选择器
+    // 早上时间选择器（Material3 滑动式）
     if (showMorningPicker) {
+        val state = rememberTimePickerState(
+            initialHour = morningH,
+            initialMinute = morningM,
+            is24Hour = true
+        )
         AlertDialog(
             onDismissRequest = { showMorningPicker = false },
             title = { Text("设置早上提醒时间") },
             text = {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    timePicker@
-                    Column {
-                        Text("时")
-                        for (h in (0..23).toList().chunked(12)) {
-                            Row {
-                                h.forEach { hr ->
-                                    FilterChip(
-                                        selected = pickerHour == hr,
-                                        onClick = { pickerHour = hr },
-                                        label = { Text("${String.format("%02d", hr)}") },
-                                        modifier = Modifier.padding(2.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    Column {
-                        Text("分")
-                        for (m in listOf(0, 15, 30, 45)) {
-                            FilterChip(
-                                selected = pickerMinute == m,
-                                onClick = { pickerMinute = m },
-                                label = { Text("${String.format("%02d", m)}") },
-                                modifier = Modifier.padding(2.dp)
-                            )
-                        }
-                    }
-                }
+                TimePicker(state = state)
             },
             confirmButton = {
                 TextButton(onClick = {
-                    settings.morningHour = pickerHour
-                    settings.morningMinute = pickerMinute
-                    morningH = pickerHour
-                    morningM = pickerMinute
+                    settings.morningHour = state.hour
+                    settings.morningMinute = state.minute
+                    morningH = state.hour
+                    morningM = state.minute
                     showMorningPicker = false
                 }) { Text("确定") }
             },
@@ -209,46 +183,25 @@ fun SettingsScreen(settings: SettingsManager) {
         )
     }
 
-    // 下午时间选择器（复用逻辑）
+    // 下午时间选择器（Material3 滑动式）
     if (showAfternoonPicker) {
+        val state = rememberTimePickerState(
+            initialHour = afternoonH,
+            initialMinute = afternoonM,
+            is24Hour = true
+        )
         AlertDialog(
             onDismissRequest = { showAfternoonPicker = false },
             title = { Text("设置下午提醒时间") },
             text = {
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text("时")
-                        for (h in (0..23).toList().chunked(12)) {
-                            Row {
-                                h.forEach { hr ->
-                                    FilterChip(
-                                        selected = pickerHour == hr,
-                                        onClick = { pickerHour = hr },
-                                        label = { Text("${String.format("%02d", hr)}") }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    Column {
-                        Text("分")
-                        for (m in listOf(0, 15, 30, 45)) {
-                            FilterChip(
-                                selected = pickerMinute == m,
-                                onClick = { pickerMinute = m },
-                                label = { Text("${String.format("%02d", m)}") }
-                            )
-                        }
-                    }
-                }
+                TimePicker(state = state)
             },
             confirmButton = {
                 TextButton(onClick = {
-                    settings.afternoonHour = pickerHour
-                    settings.afternoonMinute = pickerMinute
-                    afternoonH = pickerHour
-                    afternoonM = pickerMinute
+                    settings.afternoonHour = state.hour
+                    settings.afternoonMinute = state.minute
+                    afternoonH = state.hour
+                    afternoonM = state.minute
                     showAfternoonPicker = false
                 }) { Text("确定") }
             },
