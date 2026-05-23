@@ -15,6 +15,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE done = 0 ORDER BY updatedAt DESC")
     fun getPending(): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE done = 0 ORDER BY updatedAt DESC")
+    suspend fun getPendingList(): List<TaskEntity>
+
     @Query("SELECT * FROM tasks WHERE updatedAt > :since")
     suspend fun getUpdatedSince(since: String): List<TaskEntity>
 

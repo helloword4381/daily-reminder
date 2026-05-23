@@ -112,7 +112,8 @@ class ReminderService : Service() {
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val db = AppDatabase.getInstance(context)
-                    val tasks = db.taskDao().getPending().take(5)
+                    val allPending = db.taskDao().getPendingList()
+                    val tasks = allPending.take(5)
                     val count = tasks.size
                     if (count > 0) {
                         val titles = tasks.take(3).joinToString("、") { it.content }

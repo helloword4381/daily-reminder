@@ -14,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import com.dailyreminder.data.db.TowerCalcEntity
 import kotlin.math.abs
 import kotlin.math.tan
-import kotlin.math.toRadians
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,30 +88,33 @@ fun TowerCalcTab(
             Text("输入数据（单位：米）", style = MaterialTheme.typography.titleMedium)
         }
 
-        dataFields@ for ((idx, label) in listOf(
-            "1. 距扣塔顶平距" to "数据1",
-            "2. 距扣塔底平距" to "数据2",
-            "3. 塔顶实测方位角" to "数据3",
-            "4. 扣塔底实测方位角" to "数据4"
-        ).withIndex()) {
-            val value = when (idx) {
-                0 -> data1; 1 -> data2; 2 -> data3; 3 -> data4
-                else -> ""
-            }
-            val setter: (String) -> Unit = when (idx) {
-                0 -> { v -> data1 = v }; 1 -> { v -> data2 = v }
-                2 -> { v -> data3 = v }; 3 -> { v -> data4 = v }
-                else -> {}
-            }
-            item {
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = setter,
-                    label = { Text(label.first) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+        item {
+            OutlinedTextField(
+                value = data1, onValueChange = { data1 = it },
+                label = { Text("1. 距扣塔顶平距") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = data2, onValueChange = { data2 = it },
+                label = { Text("2. 距扣塔底平距") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = data3, onValueChange = { data3 = it },
+                label = { Text("3. 塔顶实测方位角") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = data4, onValueChange = { data4 = it },
+                label = { Text("4. 扣塔底实测方位角") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         // Calculate button
@@ -125,15 +127,16 @@ fun TowerCalcTab(
                     val d4 = data4.toDoubleOrNull() ?: return@Button
 
                     // 左右偏位
-                    val lrRaw = (d1 + d2) / 2.0 * tan(Math.toRadians((d3 - d4) / 3600.0))
+                    val angleDeg = (d3 - d4) / 3600.0
+                    val lrRaw = (d1 + d2) / 2.0 * tan(angleDeg * kotlin.math.PI / 180.0)
                     val lrMm = abs(lrRaw * 1000.0)
                     val lrDir = if (d3 > d4) "向右" else "向左"
-                    resultLR = "$lrDir偏位 ${"%.1f".format(lrMm)} mm"
+                    resultLR = "${lrDir}偏位 ${"%.1f".format(lrMm)} mm"
 
                     // 前后偏位
                     val fbMm = abs(d1 - d2) * 1000.0
                     val fbDir = if (d1 > d2) "向前" else "向后"
-                    resultFB = "$fbDir偏位 ${"%.1f".format(fbMm)} mm"
+                    resultFB = "${fbDir}偏位 ${"%.1f".format(fbMm)} mm"
 
                     calculated = true
                     lastEntity = TowerCalcEntity(
