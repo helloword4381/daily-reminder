@@ -16,32 +16,36 @@ echo.
 
 :: Init git
 if exist ".git" (
-    echo [1/6] Git already initialized.
+    echo [1/7] Git already initialized.
 ) else (
-    echo [1/6] Initializing git...
+    echo [1/7] Initializing git...
     git init
 )
 
 :: Set user identity
-echo [2/6] Setting user identity...
+echo [2/7] Setting user identity...
 git config user.email "jiangflow@foxmail.com"
 git config user.name "helloword4381"
 
 :: Add files
-echo [3/6] Adding all files...
+echo [3/7] Adding all files...
 git add .
 
 :: Commit
-echo [4/6] Committing...
+echo [4/7] Committing...
 git commit -m "v1.0 daily-reminder"
 
+:: Rename branch to main
+echo [5/7] Renaming branch to main...
+git branch -M main
+
 :: Add remote
-echo [5/6] Setting remote origin...
+echo [6/7] Setting remote origin...
 git remote add origin https://github.com/helloword4381/daily-reminder.git 2>nul
 echo        Remote: https://github.com/helloword4381/daily-reminder.git
 
 :: Push
-echo [6/6] Pushing to GitHub...
+echo [7/7] Pushing to GitHub...
 echo.
 echo IMPORTANT: A login window will pop up.
 echo Sign in with your browser.
