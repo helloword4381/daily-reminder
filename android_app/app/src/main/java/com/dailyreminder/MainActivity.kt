@@ -4,8 +4,8 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.util.Log
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -41,13 +41,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 检查并请求通知权限
         requestNotificationPermission()
     }
 
     override fun onResume() {
         super.onResume()
-        // 权限已授予但服务未启动 → 启动
         if (!serviceStarted && hasNotificationPermission()) {
             startReminderService()
         }
@@ -55,10 +53,11 @@ class MainActivity : ComponentActivity() {
 
     private fun hasNotificationPermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                    == PackageManager.PERMISSION_GRANTED
+            return ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
         }
-        return true // Android 12 及以下默认有通知权限
+        return true
     }
 
     private fun requestNotificationPermission() {
@@ -68,7 +67,6 @@ class MainActivity : ComponentActivity() {
                 return
             }
         }
-        // 已经有权限，直接启动服务
         if (!serviceStarted) {
             startReminderService()
         }
