@@ -138,7 +138,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** 尝试从多个来源获取版本信息（按可用性排序，国内友好） */
     private suspend fun fetchVersionJson(): String? = withContext(kotlinx.coroutines.Dispatchers.IO) {
         val urls = listOf(
-            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json",
             "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/version.json",
             "https://api.github.com/repos/helloword4381/daily-reminder/releases/latest"
         )
@@ -146,8 +145,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var conn: java.net.HttpURLConnection? = null
             try {
                 conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 10000
-                conn.readTimeout = 10000
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
                 conn.instanceFollowRedirects = true
