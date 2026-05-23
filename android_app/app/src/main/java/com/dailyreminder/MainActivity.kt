@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
