@@ -1,6 +1,9 @@
 @echo off
 title Push to GitHub
 
+:: 添加 Git 到路径（双击运行时可能没有）
+set PATH=C:\Program Files\Git\cmd;%PATH%
+
 echo.
 echo ============================================
 echo   Push code to GitHub
