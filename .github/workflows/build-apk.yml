@@ -1,5 +1,6 @@
 name: Build Android APK
 
+# 手动触发或推送代码时自动构建
 on:
   workflow_dispatch:
   push:
