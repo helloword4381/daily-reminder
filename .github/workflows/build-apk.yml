@@ -7,14 +7,10 @@ on:
     paths:
       - 'android_app/**'
 
-env:
-  JAVA_OPTS: "-Xmx2G -Xms1G"
-  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
-
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout code
@@ -25,7 +21,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
@@ -34,13 +29,15 @@ jobs:
           build-tools: 34.0.0
           accept-licenses: true
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x android_app/gradlew
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.7
 
       - name: Build Release APK
         run: |
           cd android_app
-          ./gradlew assembleRelease --no-daemon
+          gradle assembleRelease --no-daemon --build-cache
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

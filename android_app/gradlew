@@ -12,11 +12,11 @@ while [ -h "$PRG" ]; do
     fi
 done
 
-# Absolute path of the gradlew directory (project root)
 APP_HOME=$(cd "$(dirname "$PRG")" > /dev/null 2>&1 && pwd)
-
 WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
 WRAPPER_PROPS="$APP_HOME/gradle/wrapper/gradle-wrapper.properties"
+
+echo "APP_HOME=$APP_HOME"
 
 # Determine Java command
 if [ -n "$JAVA_HOME" ]; then
@@ -28,40 +28,73 @@ fi
 # Bootstrap: download wrapper jar if not present
 if [ ! -f "$WRAPPER_JAR" ] || [ ! -s "$WRAPPER_JAR" ]; then
     echo "==> Bootstrapping: downloading Gradle wrapper..."
-
-    # Read distribution URL from properties
-    if [ -f "$WRAPPER_PROPS" ]; then
-        DIST_URL=$(grep "^distributionUrl" "$WRAPPER_PROPS" | sed 's/.*=//' | tr -d ' ')
-        DIST_URL=$(echo "$DIST_URL" | sed 's/\\//g')
-    fi
-    if [ -z "$DIST_URL" ]; then
-        DIST_URL="https://services.gradle.org/distributions/gradle-8.7-bin.zip"
-    fi
-
-    TMP_DIR=$(mktemp -d)
     mkdir -p "$(dirname "$WRAPPER_JAR")"
 
+    # Read distribution URL from properties
+    DIST_URL="https://services.gradle.org/distributions/gradle-8.7-bin.zip"
+    if [ -f "$WRAPPER_PROPS" ]; then
+        URL_LINE=$(grep "^distributionUrl" "$WRAPPER_PROPS" | tr -d '\r')
+        if [ -n "$URL_LINE" ]; then
+            DIST_URL=$(echo "$URL_LINE" | sed 's/.*=//' | tr -d ' ' | sed 's/\\//g')
+        fi
+    fi
+    echo "Downloading from: $DIST_URL"
+
+    TMP_DIR=$(mktemp -d)
+    ZIP_FILE="$TMP_DIR/gradle.zip"
+
+    # Download
     if command -v curl > /dev/null 2>&1; then
-        curl -sL --connect-timeout 30 "$DIST_URL" -o "$TMP_DIR/gradle.zip"
+        curl -sL --connect-timeout 60 -o "$ZIP_FILE" "$DIST_URL"
+        STATUS=$?
     elif command -v wget > /dev/null 2>&1; then
-        wget -q --timeout=30 "$DIST_URL" -O "$TMP_DIR/gradle.zip"
+        wget -q --timeout=60 "$DIST_URL" -O "$ZIP_FILE"
+        STATUS=$?
     else
         echo "ERROR: Need curl or wget"
         rm -rf "$TMP_DIR"
         exit 1
     fi
 
-    unzip -p "$TMP_DIR/gradle.zip" "*/gradle/wrapper/gradle-wrapper.jar" > "$WRAPPER_JAR" 2>/dev/null
-    rm -rf "$TMP_DIR"
-
-    if [ ! -f "$WRAPPER_JAR" ] || [ ! -s "$WRAPPER_JAR" ]; then
-        echo "ERROR: Failed to bootstrap Gradle wrapper"
-        echo "APP_HOME=$APP_HOME"
-        echo "WRAPPER_JAR=$WRAPPER_JAR"
-        ls -la "$APP_HOME/gradle/wrapper/" 2>/dev/null || echo "gradle/wrapper/ not found"
+    if [ $STATUS -ne 0 ] || [ ! -s "$ZIP_FILE" ]; then
+        echo "ERROR: Download failed (status=$STATUS)"
+        rm -rf "$TMP_DIR"
         exit 1
     fi
-    echo "==> Wrapper jar ready."
+    echo "Downloaded OK ($(stat -c%s "$ZIP_FILE" 2>/dev/null || echo "?") bytes)"
+
+    # Extract wrapper jar from zip
+    # Try unzip first, then python as fallback
+    EXTRACTED=0
+    if command -v unzip > /dev/null 2>&1; then
+        unzip -p "$ZIP_FILE" "*/gradle/wrapper/gradle-wrapper.jar" > "$WRAPPER_JAR" 2>/dev/null
+        if [ -s "$WRAPPER_JAR" ]; then
+            EXTRACTED=1
+        fi
+    fi
+
+    if [ "$EXTRACTED" = "0" ] && command -v python3 > /dev/null 2>&1; then
+        python3 -c "
+import zipfile, sys
+with zipfile.ZipFile('$ZIP_FILE') as z:
+    for name in z.namelist():
+        if name.endswith('gradle-wrapper.jar'):
+            data = z.read(name)
+            open('$WRAPPER_JAR', 'wb').write(data)
+            sys.exit(0)
+    sys.exit(1)
+" && EXTRACTED=1
+    fi
+
+    rm -rf "$TMP_DIR"
+
+    if [ "$EXTRACTED" = "0" ] || [ ! -s "$WRAPPER_JAR" ]; then
+        echo "ERROR: Failed to extract wrapper jar"
+        ls -la "$(dirname "$WRAPPER_JAR")"
+        exit 1
+    fi
+
+    echo "==> Wrapper jar ready ($(stat -c%s "$WRAPPER_JAR" 2>/dev/null || echo "?") bytes)."
 fi
 
 exec "$JAVACMD" \
