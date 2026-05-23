@@ -61,8 +61,6 @@ fun SettingsScreen(settings: SettingsManager) {
                     }
                     Row {
                         TextButton(onClick = {
-                            pickerHour = morningH
-                            pickerMinute = morningM
                             showMorningPicker = true
                         }) {
                             Icon(Icons.Default.Schedule, null, modifier = Modifier.size(18.dp))
@@ -97,8 +95,6 @@ fun SettingsScreen(settings: SettingsManager) {
                     }
                     Row {
                         TextButton(onClick = {
-                            pickerHour = afternoonH
-                            pickerMinute = afternoonM
                             showAfternoonPicker = true
                         }) {
                             Icon(Icons.Default.Schedule, null, modifier = Modifier.size(18.dp))
