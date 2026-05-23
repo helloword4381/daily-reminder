@@ -60,31 +60,33 @@ class ReminderService : Service() {
     }
 
     private fun scheduleDailyAlarm(am: AlarmManager, hour: Int, minute: Int, tag: String) {
-        val cal = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            if (before(Calendar.getInstance())) {
-                add(Calendar.DAY_OF_MONTH, 1)
+        try {
+            val cal = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                if (before(Calendar.getInstance())) {
+                    add(Calendar.DAY_OF_MONTH, 1)
+                }
             }
-        }
 
-        val intent = Intent(this, ReminderAlarmReceiver::class.java).apply {
-            putExtra("tag", tag)
-            putExtra("hour", hour)
-            putExtra("minute", minute)
-        }
-        val pi = PendingIntent.getBroadcast(
-            this, if (tag == "morning") 100 else 200, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+            val intent = Intent(this, ReminderAlarmReceiver::class.java).apply {
+                putExtra("tag", tag)
+                putExtra("hour", hour)
+                putExtra("minute", minute)
+            }
+            val pi = PendingIntent.getBroadcast(
+                this, if (tag == "morning") 100 else 200, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
-        } else {
-            am.setExact(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
-        }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+            } else {
+                am.setExact(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
+            }
+        } catch (_: Exception) { }
     }
 
     inner class ScreenOnReceiver : BroadcastReceiver() {

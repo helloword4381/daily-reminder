@@ -1,6 +1,6 @@
 {
-  "version": "1.2.13",
-  "title": "日常助手 v1.2.13",
-  "notes": "• 修复检查更新无反馈（加 CHECKING 弹窗 + Toast）\n• 修复版本号比较 Bug（改为语义比较）\n• 更新源改为 jsDelivr CDN（国内友好）\n• 修复 Realme 等国产系统后台杀进程\n• 工具箱首页改图标菜单\n• 新增自动更新（内嵌下载器）\n• 新增通知权限请求\n• 新增后台优化指南",
-  "downloadUrl": "https://github.com/helloword4381/daily-reminder/releases/download/v1.2.13/日常助手_v1.2.13_build19.apk"
+  "version": "1.2.14",
+  "title": "日常助手 v1.2.14",
+  "notes": "• 新增必要权限引导页（通知 + 精确闹钟）\n• 新增闹钟权限请求（Android 12+ 防闪退）\n• 修复 alarm scheduling 异常崩溃\n• 更新 CDN 链路：jsDelivr → raw → GitHub API\n• 新增 version.json 版本文件",
+  "downloadUrl": "https://github.com/helloword4381/daily-reminder/releases/download/v1.2.14/日常助手_v1.2.14_build20.apk"
 }

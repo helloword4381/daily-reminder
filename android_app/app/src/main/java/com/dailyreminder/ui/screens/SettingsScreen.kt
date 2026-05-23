@@ -146,6 +146,59 @@ fun SettingsScreen(
                 }
             }
 
+            // 必要权限引导
+            Text("必要权限", style = MaterialTheme.typography.titleLarge)
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("为确保提醒功能正常工作，请授予以下权限：", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(12.dp))
+
+                    // 通知权限
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("通知权限", style = MaterialTheme.typography.titleSmall)
+                            Text("显示提醒消息和常驻通知", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        OutlinedButton(onClick = {
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                android.net.Uri.parse("package:${ctx.packageName}")
+                            ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                            try { ctx.startActivity(intent) } catch (_: Exception) { }
+                        }) { Text("设置") }
+                    }
+
+                    Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    // 闹钟权限
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("精确闹钟权限", style = MaterialTheme.typography.titleSmall)
+                            Text("准时触发提醒（Android 12+ 必需）", style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        OutlinedButton(onClick = {
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                android.net.Uri.parse("package:${ctx.packageName}")
+                            ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+                            try { ctx.startActivity(intent) } catch (_: Exception) { }
+                        }) { Text("设置") }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
             // 后台优化（适配所有系统）
             Text("后台优化", style = MaterialTheme.typography.titleLarge)
             Card(modifier = Modifier.fillMaxWidth()) {
