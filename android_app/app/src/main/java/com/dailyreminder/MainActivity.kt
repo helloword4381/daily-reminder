@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             DailyReminderTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    DailyReminderApp()
+                    AppEntry()
                 }
             }
         }

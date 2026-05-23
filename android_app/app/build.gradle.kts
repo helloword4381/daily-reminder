@@ -41,6 +41,15 @@ android {
     buildFeatures {
         compose = true
     }
+
+    // APK 命名：日常助手_v版本号_构建号.apk
+    applicationVariants.configureEach {
+        outputs.all {
+            if (this is com.android.build.gradle.internal.api.ApkVariantOutputImpl) {
+                this.outputFileName = "日常助手_v${versionName}_build${versionCode}.apk"
+            }
+        }
+    }
 }
 
 dependencies {

@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 圆形底色 -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+    <!-- 对勾 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,54l8,8l20,-20l-8,-8z" />
+    <!-- 闹钟顶部 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0m-16,6c-10,8 -16,20 -16,34c0,2 2,4 4,4h56c2,0 4,-2 4,-4c0,-14 -6,-26 -16,-34m-4,48c0,6 -4,10 -10,10s-10,-4 -10,-10" />
+</vector>
