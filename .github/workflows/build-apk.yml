@@ -1,100 +1,50 @@
 name: Build Android APK
 
-# 手动触发或推送代码时自动构建
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
       - 'android_app/**'
-      - 'common/**'
 
 env:
-  # 国内镜像加速（已验证可用）
-  FLUTTER_STORAGE_BASE_URL: https://storage.flutter-io.cn
-  PUB_HOSTED_URL: https://pub.flutter-io.cn
-  
-  # 统一的JVM内存配置（解决90%的卡死问题）
-  JAVA_OPTS: "-Xmx2G -Xms1G -XX:MaxMetaspaceSize=512M -XX:+UseParallelGC"
-  GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2G -Xms1G -XX:MaxMetaspaceSize=512M -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.workers.max=2"
+  JAVA_OPTS: "-Xmx2G -Xms1G"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false"
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 12  # 👈 12分钟强制停止，防止无限卡死
-    continue-on-error: false
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'  # 👈 新增：缓存pip依赖
-
-      - name: Install Python dependencies
-        run: |
-          pip install --upgrade pip
-          pip install flet==0.25.0  # 👈 锁定Flet版本，避免突然更新导致失败
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'  # 👈 用官方的gradle缓存，比手动写更可靠
+          cache: 'gradle'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           api-level: 34
           build-tools: 34.0.0
-          accept-licenses: true  # 👈 自动接受许可证，不需要单独写步骤
+          accept-licenses: true
 
-      # 缓存Flutter SDK（Flet会自动下载）
-      - name: Cache Flutter SDK
-        uses: actions/cache@v4
-        with:
-          path: ~/.flet
-          key: flet-flutter-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            flet-flutter-${{ runner.os }}-
+      - name: Grant execute permission for gradlew
+        run: chmod +x android_app/gradlew
 
-      # 构建前清理旧产物，防止缓存污染
-      - name: Clean old build artifacts
+      - name: Build Release APK
         run: |
           cd android_app
-          rm -rf build/
-          rm -rf .dart_tool/
-          rm -rf android/.gradle/
+          ./gradlew assembleRelease --no-daemon
 
-      - name: Build APK
-        id: build
-        run: |
-          cd android_app
-          # 👈 只构建arm64架构（99%的手机都支持），减少一半工作量
-          yes | flet build apk --verbose 2>&1 | tee build.log
-        env:
-          JAVA_OPTS: ${{ env.JAVA_OPTS }}
-          GRADLE_OPTS: ${{ env.GRADLE_OPTS }}
-
-      # 失败时上传完整构建日志
-      - name: Upload build logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            android_app/build.log
-            ~/.flet/**/*.log
-          retention-days: 7
-
-      - name: Upload APK artifact
-        if: success()
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: daily-reminder-apk
-          path: android_app/build/apk/app-release.apk  # 👈 直接指向最终APK，避免上传多余文件
+          path: android_app/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
