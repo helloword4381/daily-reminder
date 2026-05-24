@@ -12,6 +12,7 @@ import com.dailyreminder.data.db.*
 import com.dailyreminder.data.model.WorkDiary
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
