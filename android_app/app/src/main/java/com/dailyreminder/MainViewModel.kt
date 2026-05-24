@@ -398,16 +398,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         try {
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            // 使用 PackageInstaller API 替代 ACTION_VIEW，兼容性更好
+            val packageInstaller = context.packageManager.packageInstaller
+            val params = android.content.pm.PackageInstaller.SessionParams(
+                android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
+            )
+            val sessionId = packageInstaller.createSession(params)
+            val session = packageInstaller.openSession(sessionId)
+
+            // 写入 APK 数据
+            java.io.FileInputStream(file).use { input ->
+                session.openWrite("base.apk", 0, file.length()).use { output ->
+                    input.copyTo(output, bufferSize = 8192)
+                }
             }
-            context.startActivity(intent)
+
+            // 安装结果回调
+            val resultIntent = Intent(context, InstallResultReceiver::class.java)
+                .putExtra("file_path", file.absolutePath)
+            val pendingIntent = android.app.PendingIntent.getBroadcast(
+                context, sessionId, resultIntent,
+                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+            )
+
+            session.commit(pendingIntent.intentSender)
+            session.close()
+
             _updateState.value = UpdateState.IDLE
+            showToast("正在安装...")
         } catch (e: Exception) {
-            showToast("无法启动安装界面，请手动安装")
+            showToast("安装失败，请在浏览器中手动安装")
         }
     }
 

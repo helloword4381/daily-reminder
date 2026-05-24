@@ -35,6 +35,10 @@
             android:foregroundServiceType="dataSync" />
 
         <receiver
+            android:name=".InstallResultReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".service.ReminderAlarmReceiver"
             android:exported="false" />
 
