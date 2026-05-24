@@ -27,6 +27,9 @@ private fun dmsToSeconds(value: Double): Double {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
+val STANDING_POSITIONS = listOf("小里程", "大里程", "左幅", "右幅")
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ToolboxScreen(
     records: List<TowerCalcEntity>,
@@ -34,13 +37,13 @@ fun ToolboxScreen(
     onDelete: (String) -> Unit,
     onShare: ((List<TowerCalcEntity>) -> Unit)? = null
 ) {
-    var page by remember { mutableIntStateOf(0) } // 0=首页 1=扣塔计算
-    var tab by remember { mutableIntStateOf(0) } // 0=计算 1=记录（在page=1时有效）
+    var page by remember { mutableIntStateOf(0) }
+    var tab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (page == 0) "工具箱" else "扣塔计算") },
+                title = { Text(if (page == 0) "工具箱" else "墩柱（扣塔）偏位计算器") },
                 navigationIcon = {
                     if (page > 0) {
                         IconButton(onClick = { page = 0 }) {
@@ -51,16 +54,10 @@ fun ToolboxScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier.fillMaxSize().padding(padding)
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (page == 0) {
-                // 工具箱首页 - 图标菜单
-                ToolboxHome(
-                    onOpenTowerCalc = { page = 1; tab = 0 }
-                )
+                ToolboxHome(onOpenTowerCalc = { page = 1; tab = 0 })
             } else {
-                // 扣塔计算 - Tab 切换
                 TabRow(selectedTabIndex = tab) {
                     Tab(selected = tab == 0, onClick = { tab = 0 },
                         text = { Text("计算") },
@@ -69,7 +66,6 @@ fun ToolboxScreen(
                         text = { Text("记录 (${records.size})") },
                         icon = { Icon(Icons.Default.List, null) })
                 }
-
                 when (tab) {
                     0 -> TowerCalcTab(records = records, onSave = onSave)
                     1 -> TowerRecordsTab(records = records, onDelete = onDelete, onShare = onShare)
@@ -105,7 +101,7 @@ fun ToolboxHome(onOpenTowerCalc: () -> Unit) {
                 )
                 Spacer(Modifier.width(16.dp))
                 Column {
-                    Text("扣塔偏位计算", style = MaterialTheme.typography.titleMedium)
+                    Text("墩柱（扣塔）偏位计算", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "偏位 + 方位角分析",
                         style = MaterialTheme.typography.bodySmall,
@@ -145,11 +141,61 @@ fun ToolboxHome(onOpenTowerCalc: () -> Unit) {
     }
 }
 
+// 根据站位计算偏位方向
+private fun calcDirections(
+    standingPosition: String,
+    d1: Double, d2: Double,  // 距顶/底平距
+    d3: Double, d4: Double   // 方位角
+): CalcResult {
+    val angleDeg = ((dmsToSeconds(d3) - dmsToSeconds(d4)) / 3600.0)  // 角度差(度)
+    val angleRad = angleDeg * kotlin.math.PI / 180.0
+
+    // 左右偏幅度 = 平均平距 × tan(角度差)
+    val lrMm = abs((d1 + d2) / 2.0 * tan(angleRad) * 1000.0)
+    // 前后偏幅度 = 顶底平距差
+    val fbMm = abs(d1 - d2) * 1000.0
+
+    val (lrDir, fbDir) = when (standingPosition) {
+        "小里程" -> {
+            val l = if (d3 > d4) "向右幅" else "向左幅"
+            val f = if (d1 > d2) "往大里程" else "往小里程"
+            l to f
+        }
+        "大里程" -> {
+            val l = if (d3 > d4) "向左幅" else "向右幅"
+            val f = if (d1 > d2) "往小里程" else "往大里程"
+            l to f
+        }
+        "左幅" -> {
+            val l = if (d1 > d2) "向右幅" else "向左幅"
+            val f = if (d3 > d4) "往小里程" else "往大里程"
+            l to f
+        }
+        else -> { // 右幅
+            val l = if (d1 > d2) "向左幅" else "向右幅"
+            val f = if (d3 > d4) "往大里程" else "往小里程"
+            l to f
+        }
+    }
+
+    return CalcResult(
+        resultLR = "${lrDir}偏位 ${"%.1f".format(lrMm)} mm",
+        resultFB = "${fbDir}偏位 ${"%.1f".format(fbMm)} mm"
+    )
+}
+
+private data class CalcResult(
+    val resultLR: String,
+    val resultFB: String
+)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TowerCalcTab(
     records: List<TowerCalcEntity>,
     onSave: (TowerCalcEntity) -> Unit
 ) {
+    var standingPosition by remember { mutableStateOf(STANDING_POSITIONS[0]) }
     var number by remember { mutableStateOf("") }
     var data1 by remember { mutableStateOf("") }
     var data2 by remember { mutableStateOf("") }
@@ -162,12 +208,8 @@ fun TowerCalcTab(
     var lastEntity by remember { mutableStateOf<TowerCalcEntity?>(null) }
     val listState = rememberLazyListState()
 
-    // 计算后自动下滑显示结果
     LaunchedEffect(calculated) {
-        if (calculated) {
-            // 结果卡片大约在第 9 个 item
-            listState.animateScrollToItem(9)
-        }
+        if (calculated) listState.animateScrollToItem(10)
     }
 
     LazyColumn(
@@ -176,52 +218,83 @@ fun TowerCalcTab(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Input fields
+        // ===== 站位选择 =====
         item {
-            Text("扣塔编号", style = MaterialTheme.typography.titleMedium)
+            Text("当前站位方向", style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(4.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                STANDING_POSITIONS.forEach { pos ->
+                    FilterChip(
+                        selected = standingPosition == pos,
+                        onClick = { standingPosition = pos },
+                        label = { Text(pos, style = MaterialTheme.typography.bodyMedium) }
+                    )
+                }
+            }
+        }
+
+        // ===== 墩柱编号 =====
+        item {
             OutlinedTextField(
                 value = number,
                 onValueChange = { number = it },
-                label = { Text("输入编号") },
+                label = { Text("墩柱（扣塔）编号") },
+                placeholder = { Text("输入编号") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.Default.Tag, null) }
             )
         }
 
+        // ===== 输入数据标题 =====
         item {
-            Text("输入数据（单位：米）", style = MaterialTheme.typography.titleMedium)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            Text("测量数据（单位：米）", style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary)
         }
 
         item {
             OutlinedTextField(
                 value = data1, onValueChange = { data1 = it },
-                label = { Text("1. 距扣塔顶平距") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                label = { Text("墩柱顶平距") },
+                placeholder = { Text("距墩柱顶的水平距离") },
+                singleLine = true, modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.Default.Straighten, null) }
             )
         }
         item {
             OutlinedTextField(
                 value = data2, onValueChange = { data2 = it },
-                label = { Text("2. 距扣塔底平距") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                label = { Text("墩柱底平距") },
+                placeholder = { Text("距墩柱底的水平距离") },
+                singleLine = true, modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.Default.Straighten, null) }
             )
         }
         item {
             OutlinedTextField(
                 value = data3, onValueChange = { data3 = it },
-                label = { Text("3. 塔顶实测方位角") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                label = { Text("墩柱顶方位角") },
+                placeholder = { Text("DD.MMSSss 格式") },
+                singleLine = true, modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.Default.Explore, null) }
             )
         }
         item {
             OutlinedTextField(
                 value = data4, onValueChange = { data4 = it },
-                label = { Text("4. 扣塔底实测方位角") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                label = { Text("墩柱底方位角") },
+                placeholder = { Text("DD.MMSSss 格式") },
+                singleLine = true, modifier = Modifier.fillMaxWidth(),
+                leadingIcon = { Icon(Icons.Default.Explore, null) }
             )
         }
 
-        // Calculate button
+        // ===== 计算按钮 =====
         item {
             Button(
                 onClick = {
@@ -230,25 +303,14 @@ fun TowerCalcTab(
                     val d3 = data3.toDoubleOrNull() ?: return@Button
                     val d4 = data4.toDoubleOrNull() ?: return@Button
 
-                    // 将方位角从 DD.MMSSss 格式转换为秒
-                    val d3Sec = dmsToSeconds(d3)
-                    val d4Sec = dmsToSeconds(d4)
-
-                    // 左右偏位（角度差值已为秒，除以3600转回度）
-                    val angleDeg = (d3Sec - d4Sec) / 3600.0
-                    val lrRaw = (d1 + d2) / 2.0 * tan(angleDeg * kotlin.math.PI / 180.0)
-                    val lrMm = abs(lrRaw * 1000.0)
-                    val lrDir = if (d3Sec > d4Sec) "向右" else "向左"
-                    resultLR = "${lrDir}偏位 ${"%.1f".format(lrMm)} mm"
-
-                    // 前后偏位
-                    val fbMm = abs(d1 - d2) * 1000.0
-                    val fbDir = if (d1 > d2) "向前" else "向后"
-                    resultFB = "${fbDir}偏位 ${"%.1f".format(fbMm)} mm"
+                    val res = calcDirections(standingPosition, d1, d2, d3, d4)
+                    resultLR = res.resultLR
+                    resultFB = res.resultFB
 
                     calculated = true
                     lastEntity = TowerCalcEntity(
                         id = java.util.UUID.randomUUID().toString(),
+                        standingPosition = standingPosition,
                         number = number,
                         data1 = d1, data2 = d2, data3 = d3, data4 = d4,
                         resultLeftRight = resultLR,
@@ -256,44 +318,68 @@ fun TowerCalcTab(
                         createdAt = com.dailyreminder.data.model.TowerCalc.now()
                     )
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = MaterialTheme.shapes.medium
             ) {
                 Icon(Icons.Default.Calculate, null)
                 Spacer(Modifier.width(8.dp))
-                Text("计算")
+                Text("计算偏位", style = MaterialTheme.typography.titleSmall)
             }
         }
 
-        // Results
+        // ===== 结果卡片 =====
         if (calculated) {
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
+                    ),
+                    shape = MaterialTheme.shapes.medium
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                    Column(modifier = Modifier.padding(20.dp)) {
                         Text("计算结果", style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
-                        Text("左右偏位：$resultLR")
-                        Text("前后偏位：$resultFB")
+                        Spacer(Modifier.height(12.dp))
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f),
+                            shape = MaterialTheme.shapes.small
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.ArrowForward, null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(resultFB, style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                HorizontalDivider()
+                                Spacer(Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.SwapHoriz, null,
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(resultLR, style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            // Save button
+            // ===== 保存按钮 =====
             item {
-                Button(
+                OutlinedButton(
                     onClick = {
-                        val entity = lastEntity ?: return@Button
+                        val entity = lastEntity ?: return@OutlinedButton
                         onSave(entity)
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.secondary
-                    )
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
                 ) {
                     Icon(Icons.Default.Save, null)
                     Spacer(Modifier.width(8.dp))
@@ -377,7 +463,12 @@ fun TowerRecordsTab(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("编号: ${r.number}", fontWeight = FontWeight.Bold)
+                                Column {
+                                    Text("编号: ${r.number}", fontWeight = FontWeight.Bold)
+                                    Text("站位: ${r.standingPosition}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary)
+                                }
                                 Row {
                                     if (selectMode) {
                                         Checkbox(

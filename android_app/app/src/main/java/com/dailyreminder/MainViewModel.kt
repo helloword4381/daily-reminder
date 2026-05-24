@@ -421,9 +421,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val context = getApplication<Application>()
             val csv = buildString {
-                appendLine("编号,距扣塔顶平距(m),距扣塔底平距(m),塔顶实测方位角,扣塔底实测方位角,左右偏位,前后偏位,日期")
+                appendLine("编号,站位,顶平距(m),底平距(m),顶方位角,底方位角,左右偏位,前后偏位,日期")
                 for (r in records) {
-                    appendLine("${r.number},${r.data1},${r.data2},${r.data3},${r.data4},${r.resultLeftRight},${r.resultForwardBack},${r.createdAt.take(10)}")
+                    appendLine("${r.number},${r.standingPosition},${r.data1},${r.data2},${r.data3},${r.data4},${r.resultLeftRight},${r.resultForwardBack},${r.createdAt.take(10)}")
                 }
             }
 
