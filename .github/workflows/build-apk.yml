@@ -52,8 +52,8 @@ jobs:
       - name: Compute MD5 + Generate build-info.json
         run: |
           cd android_app
-          VERSION_NAME=$(grep 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
-          VERSION_CODE=$(grep 'versionCode' app/build.gradle.kts | sed 's/.*= \(.*\)/\1/')
+          VERSION_NAME=$(sed -n 's/.*versionName[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' app/build.gradle.kts)
+          VERSION_CODE=$(sed -n 's/.*versionCode[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' app/build.gradle.kts)
           APK_PATH_VAL="${{ env.APK_PATH }}"
           MD5=$(md5sum "$APK_PATH_VAL" | cut -d' ' -f1)
           APK_NAME=$(basename "$APK_PATH_VAL")
