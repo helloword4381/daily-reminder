@@ -181,9 +181,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun extractJson(json: String, key: String): String {
-        return json.lines().firstOrNull {
-            it.trimStart().startsWith("\"$key\"")
-        }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
+        return try {
+            org.json.JSONObject(json).optString(key, "")
+        } catch (_: Exception) { "" }
     }
 
     // ==================== 更新检查 ====================
