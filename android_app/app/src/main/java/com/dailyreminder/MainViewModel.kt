@@ -136,23 +136,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 获取最新 Release 的 build-info.json（GitHub releases/latest/download 自动重定向到最新版） */
+    /** 获取版本信息：主源 raw.githubusercontent（可靠无重定向），备用 GitHub releases/latest */
     private suspend fun fetchVersionJson(): String? {
         val urls = listOf(
-            "https://github.com/helloword4381/daily-reminder/releases/latest/download/build-info.json",
-            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json"
+            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json",
+            "https://github.com/helloword4381/daily-reminder/releases/latest/download/build-info.json"
         )
         for (urlStr in urls) {
             var conn: java.net.HttpURLConnection? = null
             try {
                 conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 8000
-                conn.readTimeout = 8000
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
                 conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
                 conn.instanceFollowRedirects = true
                 if (conn.responseCode in 200..299) {
                     val text = conn.inputStream.bufferedReader().use { it.readText() }
-                    if (text.isNotBlank() && text.length > 10) return text
+                    // 必须是 JSON 格式（以 { 开头），排除 HTML
+                    if (text.trimStart().startsWith("{")) return text
                 }
             } catch (_: Exception) { } finally { conn?.disconnect() }
         }
