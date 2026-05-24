@@ -416,38 +416,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         _updateState.value = UpdateState.IDLE
 
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            // 方式1: ACTION_INSTALL_PACKAGE（标准安装，各ROM兼容性最好）
+            val apkUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val intent = android.content.Intent(android.content.Intent.ACTION_INSTALL_PACKAGE).apply {
+                data = apkUri
+                flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra(android.content.Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+                putExtra(android.content.Intent.EXTRA_RETURN_RESULT, false)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            // 方式2: 回退到 ACTION_VIEW + 正确的 MIME type
             try {
-                val packageInstaller = context.packageManager.packageInstaller
-                val params = android.content.pm.PackageInstaller.SessionParams(
-                    android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
-                )
-                val sessionId = packageInstaller.createSession(params)
-                val session = packageInstaller.openSession(sessionId)
-
-                java.io.FileInputStream(file).use { input ->
-                    session.openWrite("base.apk", 0, file.length()).use { output ->
-                        input.copyTo(output, bufferSize = 8192)
-                    }
+                val apkUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                    setDataAndType(apkUri, "application/vnd.android.package-archive")
+                    flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK
                 }
-
-                val resultIntent = Intent(context, InstallResultReceiver::class.java)
-                    .putExtra("file_path", file.absolutePath)
-                val pendingIntent = android.app.PendingIntent.getBroadcast(
-                    context, sessionId, resultIntent,
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-                )
-
-                session.commit(pendingIntent.intentSender)
-                session.close()
-
-                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    showToast("正在安装...")
-                }
-            } catch (e: Exception) {
-                withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    showToast("安装失败，请在浏览器中手动安装")
-                }
+                context.startActivity(intent)
+            } catch (_: Exception) {
+                showToast("安装失败，请在浏览器中手动安装")
             }
         }
     }

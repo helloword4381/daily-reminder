@@ -13,8 +13,8 @@ android {
         applicationId = "com.dailyreminder"
         minSdk = 26
         targetSdk = 34
-        versionCode = 52
-        versionName = "1.5.0-test"
+        versionCode = 53
+        versionName = "1.5.1-test"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
