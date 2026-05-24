@@ -16,8 +16,8 @@ import com.dailyreminder.SettingsManager
 fun SettingsScreen(
     settings: SettingsManager,
     currentVersion: String = "",
-    darkMode: Boolean = false,
-    onToggleDarkMode: () -> Unit = {},
+    themeMode: Int = 0,
+    onSetThemeMode: (Int) -> Unit = {},
     onCheckUpdate: () -> Unit = {},
     updateInfo: com.dailyreminder.MainViewModel.UpdateInfo? = null,
     updateState: com.dailyreminder.MainViewModel.UpdateState? = null,
@@ -128,22 +128,27 @@ fun SettingsScreen(
                 }
             }
 
-            // 深色模式
+            // 主题模式
             Card(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("深色模式", style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            if (darkMode) "当前：深色" else "当前：浅色",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("主题", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(8.dp))
+                    val items = listOf(
+                        Triple(0, "跟随系统", "自动切换"),
+                        Triple(1, "浅色", "始终浅色"),
+                        Triple(2, "深色", "始终深色")
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items.forEach { (mode, label, desc) ->
+                            FilterChip(
+                                selected = themeMode == mode,
+                                onClick = { onSetThemeMode(mode) },
+                                label = { Text(label, style = MaterialTheme.typography.labelMedium) }
+                            )
+                        }
                     }
-                    Switch(checked = darkMode, onCheckedChange = { onToggleDarkMode() })
                 }
             }
 

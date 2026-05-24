@@ -37,7 +37,12 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
     val pendingTasks by viewModel.pendingTasks.collectAsState()
     val diaryEntries by viewModel.diaryEntries.collectAsState()
     val towerRecords by viewModel.towerRecords.collectAsState()
-    val darkMode by viewModel.darkMode.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
+    val isDark = when (themeMode) {
+        1 -> false
+        2 -> true
+        else -> androidx.compose.foundation.isSystemInDarkTheme()
+    }
     val updateInfo by viewModel.updateInfo.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val downloadProgress by viewModel.downloadProgress.collectAsState()
@@ -125,10 +130,11 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
         )
     }
 
-    DailyReminderTheme(darkTheme = darkMode) {
+    DailyReminderTheme(darkTheme = isDark) {
         AppContent(
             navController = navController,
             viewModel = viewModel,
+            themeMode = themeMode,
             allTasks = allTasks,
             pendingTasks = pendingTasks,
             diaryEntries = diaryEntries,
@@ -146,6 +152,7 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
 private fun AppContent(
     navController: androidx.navigation.NavHostController,
     viewModel: MainViewModel,
+    themeMode: Int,
     allTasks: List<com.dailyreminder.data.db.TaskEntity>,
     pendingTasks: List<com.dailyreminder.data.db.TaskEntity>,
     diaryEntries: List<com.dailyreminder.data.db.WorkDiaryEntity>,
@@ -156,8 +163,6 @@ private fun AppContent(
     toastMsg: String,
     snackbarHostState: SnackbarHostState
 ) {
-    val darkMode by viewModel.darkMode.collectAsState()
-
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
@@ -187,7 +192,11 @@ private fun AppContent(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(
+                bottom = innerPadding.calculateBottomPadding(),
+                start = innerPadding.calculateStartPadding(),
+                end = innerPadding.calculateEndPadding()
+            )
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
@@ -229,8 +238,8 @@ private fun AppContent(
                 SettingsScreen(
                     settings = viewModel.settings,
                     currentVersion = version,
-                    darkMode = darkMode,
-                    onToggleDarkMode = { viewModel.toggleDarkMode() },
+                    themeMode = themeMode,
+                    onSetThemeMode = { viewModel.setThemeMode(it) },
                     onCheckUpdate = { viewModel.checkForUpdate() },
                     updateInfo = updateInfo,
                     updateState = updateState,

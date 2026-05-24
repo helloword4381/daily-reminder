@@ -117,14 +117,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _toastMessage = MutableStateFlow("")
     val toastMessage: StateFlow<String> = _toastMessage.asStateFlow()
 
-    /** 深色模式 */
-    private val _darkMode = MutableStateFlow(settings.isDarkMode)
-    val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
+    /** 主题模式: 0=跟随系统, 1=浅色, 2=深色 */
+    private val _themeMode = MutableStateFlow(settings.themeMode)
+    val themeMode: StateFlow<Int> = _themeMode.asStateFlow()
 
-    fun toggleDarkMode() {
-        val newVal = !_darkMode.value
-        _darkMode.value = newVal
-        settings.isDarkMode = newVal
+    fun setThemeMode(mode: Int) {
+        _themeMode.value = mode
+        settings.themeMode = mode
     }
 
     /** 语义化版本比较 */
