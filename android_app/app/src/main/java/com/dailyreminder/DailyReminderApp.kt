@@ -42,9 +42,9 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
     val toastMsg by viewModel.toastMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // 启动时检查更新 + 检查待安装 APK
+    // 启动时静默检查更新 + 检查待安装 APK
     LaunchedEffect(Unit) {
-        viewModel.checkForUpdate()
+        viewModel.silentCheckForUpdate()
         viewModel.checkPendingInstall()
     }
 

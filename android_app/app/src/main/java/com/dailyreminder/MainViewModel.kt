@@ -166,6 +166,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ==================== 更新检查 ====================
+    /** 静默检查（启动时调用，不弹对话框） */
+    fun silentCheckForUpdate() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val currentVer = getApplication<Application>().packageManager
+                    .getPackageInfo(getApplication<Application>().packageName, 0)
+                    .versionName ?: "0.0.0"
+                val json = fetchVersionJson() ?: return@launch
+                val remoteVer = extractJson(json, "versionName")
+                val remoteMd5 = extractJson(json, "md5")
+                val apkName = extractJson(json, "apkName")
+                val buildNum = extractJson(json, "buildNumber")
+                val dlUrl = if (apkName.isNotBlank() && buildNum.isNotBlank()) {
+                    "https://github.com/helloword4381/daily-reminder/releases/download/build-${buildNum}/${apkName}"
+                } else {
+                    extractJson(json, "downloadUrl")
+                }
+                val hasNew = isNewerVersion(remoteVer, currentVer)
+                if (hasNew) {
+                    _updateInfo.value = UpdateInfo(
+                        hasUpdate = true, versionName = remoteVer,
+                        downloadUrl = dlUrl, md5 = remoteMd5
+                    )
+                    _updateState.value = UpdateState.AVAILABLE
+                }
+            } catch (_: Exception) { }
+        }
+    }
+
+    /** 手动检查（点击按钮时调用，显示对话框） */
     fun checkForUpdate() {
         _updateState.value = UpdateState.CHECKING
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
