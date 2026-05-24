@@ -178,9 +178,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val remoteVer = extractJson(json, "versionName")
                 val remoteMd5 = extractJson(json, "md5")
                 val apkName = extractJson(json, "apkName")
-                val buildNum = extractJson(json, "buildNumber")
-                val dlUrl = if (apkName.isNotBlank() && buildNum.isNotBlank()) {
-                    "https://github.com/helloword4381/daily-reminder/releases/download/build-${buildNum}/${apkName}"
+                // 用 latest/download 永久链接，不依赖 build 编号
+                val dlUrl = if (apkName.isNotBlank()) {
+                    "https://github.com/helloword4381/daily-reminder/releases/latest/download/${apkName}"
                 } else {
                     extractJson(json, "downloadUrl")
                 }
@@ -214,11 +214,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val remoteVer = extractJson(json, "versionName")
                 val remoteMd5 = extractJson(json, "md5")
                 val apkName = extractJson(json, "apkName")
-                val buildNum = extractJson(json, "buildNumber")
 
-                // 从 build-info.json 构造下载 URL，否则 fallback 到 version.json 的 downloadUrl 字段
-                val dlUrl = if (apkName.isNotBlank() && buildNum.isNotBlank()) {
-                    "https://github.com/helloword4381/daily-reminder/releases/download/build-${buildNum}/${apkName}"
+                // 用 latest/download 永久链接，不依赖 build 编号
+                val dlUrl = if (apkName.isNotBlank()) {
+                    "https://github.com/helloword4381/daily-reminder/releases/latest/download/${apkName}"
                 } else {
                     extractJson(json, "downloadUrl")
                 }
