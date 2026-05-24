@@ -4,6 +4,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -210,6 +216,7 @@ fun TowerCalcTab(
     var calculated by remember { mutableStateOf(false) }
     var lastEntity by remember { mutableStateOf<TowerCalcEntity?>(null) }
     val listState = rememberLazyListState()
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(calculated) {
         if (calculated) listState.animateScrollToItem(10)
@@ -249,7 +256,9 @@ fun TowerCalcTab(
                 placeholder = { Text("输入编号") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Tag, null) }
+                leadingIcon = { Icon(Icons.Default.Tag, null) },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
             )
         }
 
@@ -266,7 +275,9 @@ fun TowerCalcTab(
                 label = { Text("墩柱顶平距") },
                 placeholder = { Text("距墩柱顶的水平距离") },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Straighten, null) }
+                leadingIcon = { Icon(Icons.Default.Straighten, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
             )
         }
         item {
@@ -275,7 +286,9 @@ fun TowerCalcTab(
                 label = { Text("墩柱底平距") },
                 placeholder = { Text("距墩柱底的水平距离") },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Straighten, null) }
+                leadingIcon = { Icon(Icons.Default.Straighten, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
             )
         }
         item {
@@ -284,7 +297,9 @@ fun TowerCalcTab(
                 label = { Text("墩柱顶方位角") },
                 placeholder = { Text("DD.MMSSss 格式") },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Explore, null) }
+                leadingIcon = { Icon(Icons.Default.Explore, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
             )
         }
         item {
@@ -293,7 +308,9 @@ fun TowerCalcTab(
                 label = { Text("墩柱底方位角") },
                 placeholder = { Text("DD.MMSSss 格式") },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
-                leadingIcon = { Icon(Icons.Default.Explore, null) }
+                leadingIcon = { Icon(Icons.Default.Explore, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
             )
         }
 
