@@ -177,6 +177,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
                 val json = fetchVersionJson() ?: run {
                     _updateState.value = UpdateState.IDLE
+                    showToast("检查更新失败，请检查网络")
                     return@launch
                 }
 
