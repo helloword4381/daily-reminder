@@ -168,7 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // ==================== 更新检查 ====================
     fun checkForUpdate() {
         _updateState.value = UpdateState.CHECKING
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
                 val pm = getApplication<Application>().packageManager
                 val pi = pm.getPackageInfo(getApplication<Application>().packageName, 0)
