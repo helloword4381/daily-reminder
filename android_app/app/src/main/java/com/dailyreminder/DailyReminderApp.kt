@@ -194,7 +194,11 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
                 SettingsScreen(
                     settings = viewModel.settings,
                     currentVersion = version,
-                    onCheckUpdate = { viewModel.checkForUpdate() }
+                    onCheckUpdate = { viewModel.checkForUpdate() },
+                    updateInfo = updateInfo,
+                    updateState = updateState,
+                    onDownloadUpdate = { viewModel.downloadApk() },
+                    onDismissUpdate = { viewModel.cancelUpdate() }
                 )
             }
         }
