@@ -20,7 +20,8 @@ fun SettingsScreen(
     updateInfo: com.dailyreminder.MainViewModel.UpdateInfo? = null,
     updateState: com.dailyreminder.MainViewModel.UpdateState? = null,
     onDownloadUpdate: () -> Unit = {},
-    onDismissUpdate: () -> Unit = {}
+    onDismissUpdate: () -> Unit = {},
+    onOpenBrowser: () -> Unit = {}
 ) {
     var morningRem by remember { mutableStateOf(settings.morningReminder) }
     var morningH by remember { mutableStateOf(settings.morningHour) }
@@ -293,6 +294,7 @@ fun SettingsScreen(
                             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 TextButton(onClick = onDismissUpdate) { Text("忽略") }
                                 TextButton(onClick = onDownloadUpdate) { Text("下载") }
+                                TextButton(onClick = onOpenBrowser) { Text("浏览器下载") }
                             }
                         }
                     }

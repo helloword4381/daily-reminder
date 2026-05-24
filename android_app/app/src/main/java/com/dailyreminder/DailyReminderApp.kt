@@ -198,7 +198,8 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
                     updateInfo = updateInfo,
                     updateState = updateState,
                     onDownloadUpdate = { viewModel.downloadApk() },
-                    onDismissUpdate = { viewModel.cancelUpdate() }
+                    onDismissUpdate = { viewModel.cancelUpdate() },
+                    onOpenBrowser = { viewModel.openDownloadInBrowser() }
                 )
             }
         }

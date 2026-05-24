@@ -346,8 +346,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (_: Exception) {
                 _updateState.value = UpdateState.AVAILABLE
                 _downloadProgress.value = 0
+                showToast("下载失败，请在浏览器中手动下载")
             }
         }
+    }
+
+    fun openDownloadInBrowser() {
+        val url = _updateInfo.value.downloadUrl
+        if (url.isBlank()) return
+        val context = getApplication<Application>()
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (_: Exception) { }
     }
 
     private fun verifyMd5(file: File, expected: String): Boolean {
