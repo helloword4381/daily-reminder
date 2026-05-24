@@ -16,7 +16,11 @@ import com.dailyreminder.SettingsManager
 fun SettingsScreen(
     settings: SettingsManager,
     currentVersion: String = "",
-    onCheckUpdate: () -> Unit = {}
+    onCheckUpdate: () -> Unit = {},
+    updateInfo: com.dailyreminder.MainViewModel.UpdateInfo? = null,
+    updateState: com.dailyreminder.MainViewModel.UpdateState? = null,
+    onDownloadUpdate: () -> Unit = {},
+    onDismissUpdate: () -> Unit = {}
 ) {
     var morningRem by remember { mutableStateOf(settings.morningReminder) }
     var morningH by remember { mutableStateOf(settings.morningHour) }
@@ -266,6 +270,35 @@ fun SettingsScreen(
             }
 
             Spacer(Modifier.height(16.dp))
+
+            // 更新通知 — 有可用更新时内联显示
+            if (updateState == com.dailyreminder.MainViewModel.UpdateState.AVAILABLE && updateInfo != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("发现新版本 v${updateInfo.versionName}",
+                                    style = MaterialTheme.typography.titleSmall)
+                                Text("点击下载更新", style = MaterialTheme.typography.bodySmall)
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = onDismissUpdate) { Text("忽略") }
+                                TextButton(onClick = onDownloadUpdate) { Text("下载") }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
 
             // 应用信息
             Text("关于", style = MaterialTheme.typography.titleLarge)

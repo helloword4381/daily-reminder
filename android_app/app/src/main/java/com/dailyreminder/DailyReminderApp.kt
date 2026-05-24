@@ -104,7 +104,11 @@ fun DailyReminderApp(viewModel: MainViewModel = viewModel()) {
             SettingsScreen(
                 settings = viewModel.settings,
                 currentVersion = version,
-                onCheckUpdate = { viewModel.checkForUpdate() }
+                onCheckUpdate = { viewModel.checkForUpdate() },
+                updateInfo = updateInfo,
+                updateState = updateState,
+                onDownloadUpdate = { viewModel.downloadApk() },
+                onDismissUpdate = { viewModel.cancelUpdate() }
             )
         }
     }
@@ -183,29 +187,6 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
                 TextButton(onClick = { viewModel.installApk() }) { Text("立即安装") }
             },
             dismissButton = { }
-        )
-    }
-
-    // 更新弹窗 - 发现新版本
-    if (updateState == com.dailyreminder.MainViewModel.UpdateState.AVAILABLE) {
-        AlertDialog(
-            onDismissRequest = { },
-            title = { Text("发现新版本") },
-            text = {
-                Column {
-                    Text("日常助手 v${updateInfo.versionName}",
-                        style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text("有可用更新，是否下载？",
-                        style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.downloadApk() }) { Text("立即更新") }
-            },
-            dismissButton = {
-                TextButton(onClick = { viewModel.cancelUpdate() }) { Text("稍后") }
-            }
         )
     }
 
