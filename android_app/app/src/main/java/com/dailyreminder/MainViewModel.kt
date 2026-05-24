@@ -153,17 +153,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val USER_AGENT = "Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0"
         private val VERSION_URLS = listOf(
             "https://ghfast.top/https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/version.json",
-            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/release/version.json",
             "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/version.json"
         )
         private val APK_URLS = listOf(
             "https://ghfast.top/https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/Daily-Aide.apk",
-            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/release/Daily-Aide.apk",
             "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/Daily-Aide.apk"
         )
     }
 
-    /** 获取版本信息：三级降级 ghfast → jsDelivr → raw.githubusercontent */
+    /** 获取版本信息：ghfast 主源，raw.githubusercontent 备用 */
     private suspend fun fetchVersionJson(): String? {
         for (urlStr in VERSION_URLS) {
             var conn: java.net.HttpURLConnection? = null
