@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -374,10 +375,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun installApk() {
         val file = _downloadFile.value ?: return
-        if (!file.exists()) return
+        if (!file.exists()) {
+            showToast("安装文件不存在，请重新下载")
+            return
+        }
 
-        _updateState.value = UpdateState.INSTALLING
         val context = getApplication<Application>()
+
+        // Android 8+ 需要 "安装未知应用" 权限
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!context.packageManager.canRequestPackageInstalls()) {
+                try {
+                    val intent = android.content.Intent(
+                        android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        android.net.Uri.parse("package:${context.packageName}")
+                    ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    context.startActivity(intent)
+                } catch (_: Exception) { }
+                showToast("请先允许安装未知来源应用")
+                return
+            }
+        }
+
         try {
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
@@ -386,8 +405,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
-        } catch (_: Exception) { }
-        _updateState.value = UpdateState.IDLE
+            _updateState.value = UpdateState.IDLE
+        } catch (e: Exception) {
+            showToast("无法启动安装界面，请手动安装")
+        }
     }
 
     fun cancelUpdate() {
