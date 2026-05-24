@@ -58,7 +58,10 @@ jobs:
           VERSION_CODE=$(sed -n 's/.*versionCode[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' app/build.gradle.kts)
           APK_PATH_VAL="${{ env.APK_PATH }}"
           MD5=$(md5sum "$APK_PATH_VAL" | cut -d' ' -f1)
-          APK_NAME=$(basename "$APK_PATH_VAL")
+          # 纯英文命名，避免中文被替换导致文件名不匹配
+          APK_NAME="daily-reminder-v${VERSION_NAME}.apk"
+          cp "$APK_PATH_VAL" "$APK_NAME"
+          echo "APK_PATH=$APK_NAME" >> $GITHUB_ENV
           printf '{"versionName":"%s","versionCode":%s,"buildNumber":%s,"md5":"%s","apkName":"%s"}\n' \
             "$VERSION_NAME" "$VERSION_CODE" "${{ github.run_number }}" "$MD5" "$APK_NAME" > build-info.json
           echo "build-info.json: $(cat build-info.json)"
