@@ -148,7 +148,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 5000
-                conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0")
                 conn.instanceFollowRedirects = true
                 if (conn.responseCode in 200..299) {
                     val text = conn.inputStream.bufferedReader().use { it.readText() }
@@ -263,10 +263,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
 
-                val conn = java.net.URL(info.downloadUrl).openConnection() as java.net.HttpURLConnection
+                val USER_AGENT = "Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0"
+                var conn = java.net.URL(info.downloadUrl).openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 15000
                 conn.readTimeout = 15000
-                conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
+                conn.setRequestProperty("User-Agent", USER_AGENT)
                 conn.instanceFollowRedirects = true
 
                 // 续传：有部分文件则设置 Range
@@ -285,14 +286,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (tmpFile.exists()) tmpFile.delete()
                     downloadedBytes = 0
                     conn.disconnect()
-                    // 重新连接（不支持 Range）
-                    val conn2 = java.net.URL(info.downloadUrl).openConnection() as java.net.HttpURLConnection
-                    conn2.connectTimeout = 15000
-                    conn2.readTimeout = 15000
-                    conn2.setRequestProperty("User-Agent", "DailyReminder/1.0")
-                    conn2.instanceFollowRedirects = true
-                    conn2.connect()
-                    conn2.contentLengthLong
+                    // 重新连接（不支持 Range），复用 conn 变量
+                    conn = java.net.URL(info.downloadUrl).openConnection() as java.net.HttpURLConnection
+                    conn.connectTimeout = 15000
+                    conn.readTimeout = 15000
+                    conn.setRequestProperty("User-Agent", USER_AGENT)
+                    conn.instanceFollowRedirects = true
+                    conn.connect()
+                    conn.contentLengthLong
                 }
 
                 val input = conn.inputStream
