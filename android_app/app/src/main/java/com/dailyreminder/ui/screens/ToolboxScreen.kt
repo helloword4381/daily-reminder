@@ -401,6 +401,25 @@ fun TowerRecordsTab(
 ) {
     var selectMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(setOf<String>()) }
+    var deleteTarget by remember { mutableStateOf<String?>(null) }
+
+    // 删除确认弹窗
+    if (deleteTarget != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("确认删除") },
+            text = { Text("确定要删除这条记录吗？删除后无法恢复。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(deleteTarget!!)
+                    deleteTarget = null
+                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) { Text("取消") }
+            }
+        )
+    }
 
     if (records.isEmpty()) {
         Box(
@@ -494,7 +513,7 @@ fun TowerRecordsTab(
                             Text(r.resultLeftRight, fontWeight = FontWeight.SemiBold)
                             Text(r.resultForwardBack, fontWeight = FontWeight.SemiBold)
                             if (!selectMode) {
-                                TextButton(onClick = { onDelete(r.id) }) {
+                                TextButton(onClick = { deleteTarget = r.id }) {
                                     Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
                                     Spacer(Modifier.width(4.dp))
                                     Text("删除", color = MaterialTheme.colorScheme.error)
