@@ -413,37 +413,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
-        try {
-            // 使用 PackageInstaller API 替代 ACTION_VIEW，兼容性更好
-            val packageInstaller = context.packageManager.packageInstaller
-            val params = android.content.pm.PackageInstaller.SessionParams(
-                android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
-            )
-            val sessionId = packageInstaller.createSession(params)
-            val session = packageInstaller.openSession(sessionId)
+        _updateState.value = UpdateState.IDLE
 
-            // 写入 APK 数据
-            java.io.FileInputStream(file).use { input ->
-                session.openWrite("base.apk", 0, file.length()).use { output ->
-                    input.copyTo(output, bufferSize = 8192)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val packageInstaller = context.packageManager.packageInstaller
+                val params = android.content.pm.PackageInstaller.SessionParams(
+                    android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
+                )
+                val sessionId = packageInstaller.createSession(params)
+                val session = packageInstaller.openSession(sessionId)
+
+                java.io.FileInputStream(file).use { input ->
+                    session.openWrite("base.apk", 0, file.length()).use { output ->
+                        input.copyTo(output, bufferSize = 8192)
+                    }
+                }
+
+                val resultIntent = Intent(context, InstallResultReceiver::class.java)
+                    .putExtra("file_path", file.absolutePath)
+                val pendingIntent = android.app.PendingIntent.getBroadcast(
+                    context, sessionId, resultIntent,
+                    android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                )
+
+                session.commit(pendingIntent.intentSender)
+                session.close()
+
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    showToast("正在安装...")
+                }
+            } catch (e: Exception) {
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    showToast("安装失败，请在浏览器中手动安装")
                 }
             }
-
-            // 安装结果回调
-            val resultIntent = Intent(context, InstallResultReceiver::class.java)
-                .putExtra("file_path", file.absolutePath)
-            val pendingIntent = android.app.PendingIntent.getBroadcast(
-                context, sessionId, resultIntent,
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
-            )
-
-            session.commit(pendingIntent.intentSender)
-            session.close()
-
-            _updateState.value = UpdateState.IDLE
-            showToast("正在安装...")
-        } catch (e: Exception) {
-            showToast("安装失败，请在浏览器中手动安装")
         }
     }
 
