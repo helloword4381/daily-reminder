@@ -192,11 +192,7 @@ private fun AppContent(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = Modifier.padding(
-                bottom = innerPadding.calculateBottomPadding(),
-                start = innerPadding.calculateStartPadding(),
-                end = innerPadding.calculateEndPadding()
-            )
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
