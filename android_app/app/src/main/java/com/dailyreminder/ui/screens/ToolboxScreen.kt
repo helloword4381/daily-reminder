@@ -141,19 +141,22 @@ fun ToolboxHome(onOpenTowerCalc: () -> Unit) {
     }
 }
 
-// 根据站位计算偏位方向
+// 根据站位计算偏位方向 + 幅度
 private fun calcDirections(
     standingPosition: String,
     d1: Double, d2: Double,  // 距顶/底平距
     d3: Double, d4: Double   // 方位角
 ): CalcResult {
-    val angleDeg = ((dmsToSeconds(d3) - dmsToSeconds(d4)) / 3600.0)  // 角度差(度)
+    val angleDeg = ((dmsToSeconds(d3) - dmsToSeconds(d4)) / 3600.0)
     val angleRad = angleDeg * kotlin.math.PI / 180.0
 
-    // 左右偏幅度 = 平均平距 × tan(角度差)
-    val lrMm = abs((d1 + d2) / 2.0 * tan(angleRad) * 1000.0)
-    // 前后偏幅度 = 顶底平距差
-    val fbMm = abs(d1 - d2) * 1000.0
+    // 两种幅度公式
+    val distDiff = abs(d1 - d2) * 1000.0                                    // 前后偏幅度(里程类) / 左右偏幅度(幅类)
+    val angleOffset = abs((d1 + d2) / 2.0 * tan(angleRad) * 1000.0)          // 左右偏幅度(里程类) / 前后偏幅度(幅类)
+
+    val isMileage = standingPosition in listOf("小里程", "大里程")
+    val fbMm = if (isMileage) distDiff else angleOffset
+    val lrMm = if (isMileage) angleOffset else distDiff
 
     val (lrDir, fbDir) = when (standingPosition) {
         "小里程" -> {
