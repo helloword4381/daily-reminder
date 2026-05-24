@@ -15,8 +15,10 @@ class NotificationHelper(private val context: Context) {
     companion object {
         const val CHANNEL_SERVICE = "daily_reminder_service"
         const val CHANNEL_REMINDER = "daily_reminder_reminder"
+        const val CHANNEL_DOWNLOAD = "daily_reminder_download"
         const val NOTIFY_SERVICE = 1
         const val NOTIFY_REMINDER = 2
+        const val NOTIFY_DOWNLOAD = 3
     }
 
     fun createChannels() {
@@ -41,6 +43,16 @@ class NotificationHelper(private val context: Context) {
             enableVibration(true)
         }
         nm.createNotificationChannel(reminderChannel)
+
+        // 下载通知渠道（中优先级，弹窗提醒）
+        val downloadChannel = NotificationChannel(
+            CHANNEL_DOWNLOAD, "更新下载",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "新版本下载完成通知"
+            setShowBadge(false)
+        }
+        nm.createNotificationChannel(downloadChannel)
     }
 
     fun buildServiceNotification(): android.app.Notification {
@@ -59,6 +71,29 @@ class NotificationHelper(private val context: Context) {
             .setOngoing(true)
             .setSilent(true)
             .build()
+    }
+
+    /** 下载完成通知（点击跳转安装） */
+    fun showDownloadCompleteNotification(apkUri: androidx.core.net.UriCompat? = null) {
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val pi = PendingIntent.getActivity(
+            context, 3, installIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(context, CHANNEL_DOWNLOAD)
+            .setContentTitle("新版本已下载")
+            .setContentText("点击安装新版本")
+            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setContentIntent(pi)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .build()
+
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(NOTIFY_DOWNLOAD, notification)
     }
 
     fun buildReminderNotification(title: String, body: String) {

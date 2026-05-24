@@ -87,10 +87,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // === 更新信息 ===
     data class UpdateInfo(
         val hasUpdate: Boolean = false,
-        val version: String = "",
-        val title: String = "",
-        val notes: String = "",
-        val downloadUrl: String = ""
+        val versionName: String = "",
+        val versionCode: Int = 0,
+        val buildNumber: Int = 0,
+        val downloadUrl: String = "",
+        val md5: String = ""
     )
 
     enum class UpdateState { IDLE, CHECKING, AVAILABLE, DOWNLOADING, DOWNLOADED, INSTALLING }
@@ -112,9 +113,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     companion object {
         private const val APK_FILENAME = "update.apk"
+        private const val APK_TMP = "update.apk.tmp"
     }
 
-    /** 语义化版本比较，返回 true 如果 remote > current */
+    /** 语义化版本比较 */
     private fun isNewerVersion(remote: String, current: String): Boolean {
         val rParts = remote.split(".").map { it.toIntOrNull() ?: 0 }
         val cParts = current.split(".").map { it.toIntOrNull() ?: 0 }
@@ -126,7 +128,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return false
     }
 
-    /** 清除 Toast 消息（延迟） */
     private fun showToast(msg: String, durationMs: Long = 2500) {
         _toastMessage.value = msg
         viewModelScope.launch {
@@ -135,7 +136,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 从 raw.githubusercontent.com 直接读取 version.json，jsDelivr 备用 */
+    /** 从 raw.githubusercontent.com 读取 version.json */
     private suspend fun fetchVersionJson(): String? {
         val urls = listOf(
             "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json",
@@ -150,8 +151,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 conn.requestMethod = "GET"
                 conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
                 conn.instanceFollowRedirects = true
-                val code = conn.responseCode
-                if (code in 200..299) {
+                if (conn.responseCode in 200..299) {
                     val text = conn.inputStream.bufferedReader().use { it.readText() }
                     if (text.isNotBlank() && text.length > 10) return text
                 }
@@ -160,45 +160,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return null
     }
 
-    private fun simpleExtract(json: String, key: String): String {
+    private fun extractJson(json: String, key: String): String {
         return json.lines().firstOrNull {
             it.trimStart().startsWith("\"$key\"")
         }?.substringAfter(":")?.trim()?.trim('"', ',', ' ') ?: ""
     }
 
+    // ==================== 更新检查 ====================
     fun checkForUpdate() {
         _updateState.value = UpdateState.CHECKING
         viewModelScope.launch {
             try {
-                val currentVer = getApplication<Application>().packageManager
-                    .getPackageInfo(getApplication<Application>().packageName, 0)
-                    .versionName ?: "0.0.0"
+                val pm = getApplication<Application>().packageManager
+                val pi = pm.getPackageInfo(getApplication<Application>().packageName, 0)
+                val currentVer = pi.versionName ?: "0.0.0"
 
-                val json = fetchVersionJson()
-                if (json == null) {
+                val json = fetchVersionJson() ?: run {
                     _updateState.value = UpdateState.IDLE
-                    showToast("检查更新失败，请检查网络")
                     return@launch
                 }
 
-                val remoteVer = simpleExtract(json, "version")
-                val notes = simpleExtract(json, "notes")
-                val dlUrl = simpleExtract(json, "downloadUrl")
+                val remoteVer = extractJson(json, "versionName")
+                val dlUrl = extractJson(json, "downloadUrl")
+                val remoteMd5 = extractJson(json, "md5")
                 val hasNew = isNewerVersion(remoteVer, currentVer)
 
+                // 即使 md5 为空也需要能下载（兼容旧版 version.json）
                 _updateInfo.value = UpdateInfo(
                     hasUpdate = hasNew,
-                    version = remoteVer,
-                    title = "日常助手 v$remoteVer",
-                    notes = notes,
-                    downloadUrl = dlUrl
+                    versionName = remoteVer,
+                    downloadUrl = dlUrl,
+                    md5 = remoteMd5
                 )
-                if (hasNew) {
-                    _updateState.value = UpdateState.AVAILABLE
-                } else {
-                    _updateState.value = UpdateState.IDLE
-                    showToast("已是最新版本 v$currentVer")
-                }
+                _updateState.value = if (hasNew) UpdateState.AVAILABLE else UpdateState.IDLE
+                if (!hasNew) showToast("已是最新版本 v$currentVer")
             } catch (_: Exception) {
                 _updateInfo.value = UpdateInfo()
                 _updateState.value = UpdateState.IDLE
@@ -207,49 +202,124 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ==================== 断点续传 + MD5 ====================
     fun downloadApk() {
-        val url = _updateInfo.value.downloadUrl ?: return
-        if (url.isBlank()) return
+        val info = _updateInfo.value
+        if (info.downloadUrl.isBlank()) return
+
         _updateState.value = UpdateState.DOWNLOADING
         _downloadProgress.value = 0
+        val expectedMd5 = info.md5
 
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                val context = getApplication<Application>()
-                val file = File(context.cacheDir, APK_FILENAME)
-                if (file.exists()) file.delete()
+                val ctx = getApplication<Application>()
+                val tmpFile = File(ctx.cacheDir, APK_TMP)
+                var downloadedBytes = tmpFile.length()
 
-                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                // 如果已有完整文件且 MD5 匹配则跳过下载
+                val finalFile = File(ctx.cacheDir, APK_FILENAME)
+                if (finalFile.exists() && verifyMd5(finalFile, expectedMd5)) {
+                    _downloadFile.value = finalFile
+                    _downloadProgress.value = 100
+                    _updateState.value = UpdateState.DOWNLOADED
+                    return@launch
+                }
+
+                val conn = java.net.URL(info.downloadUrl).openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 15000
                 conn.readTimeout = 15000
+                conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
+                conn.instanceFollowRedirects = true
+
+                // 续传：有部分文件则设置 Range
+                if (downloadedBytes > 0) {
+                    conn.setRequestProperty("Range", "bytes=$downloadedBytes-")
+                }
                 conn.connect()
 
-                val totalSize = conn.contentLengthLong
+                val code = conn.responseCode
+                val totalSize = if (downloadedBytes > 0 && code == 206) {
+                    // 部分内容 —— 从 Content-Range 取总大小
+                    val range = conn.headerField("Content-Range")
+                    range?.substringAfter("/")?.trim()?.toLongOrNull() ?: conn.contentLengthLong
+                } else {
+                    // 不支持续传，重新下载
+                    if (tmpFile.exists()) tmpFile.delete()
+                    downloadedBytes = 0
+                    conn.disconnect()
+                    // 重新连接（不支持 Range）
+                    val conn2 = java.net.URL(info.downloadUrl).openConnection() as java.net.HttpURLConnection
+                    conn2.connectTimeout = 15000
+                    conn2.readTimeout = 15000
+                    conn2.setRequestProperty("User-Agent", "DailyReminder/1.0")
+                    conn2.instanceFollowRedirects = true
+                    conn2.connect()
+                    conn2.contentLengthLong
+                }
+
                 val input = conn.inputStream
-                val output = file.outputStream()
+                val raf = java.io.RandomAccessFile(tmpFile, "rw")
+                raf.seek(downloadedBytes)
+
+                val digest = if (expectedMd5.isNotBlank()) java.security.MessageDigest.getInstance("MD5") else null
+                // 如果有续传部分，需要先算已有内容的 MD5
+                if (digest != null && downloadedBytes > 0) {
+                    val existing = java.io.FileInputStream(tmpFile).use { it.readBytes() }
+                    digest.update(existing)
+                }
+
                 val buffer = ByteArray(8192)
                 var bytesRead: Int
-                var totalRead = 0L
+                var totalRead = downloadedBytes
 
                 while (input.read(buffer).also { bytesRead = it } != -1) {
-                    output.write(buffer, 0, bytesRead)
+                    raf.write(buffer, 0, bytesRead)
                     totalRead += bytesRead
+                    digest?.update(buffer, 0, bytesRead)
                     if (totalSize > 0) {
                         _downloadProgress.value = ((totalRead * 100) / totalSize).toInt()
                     }
                 }
-                output.close()
+                raf.close()
                 input.close()
                 conn.disconnect()
 
-                _downloadFile.value = file
+                // MD5 校验
+                if (digest != null) {
+                    val actualMd5 = digest.digest().joinToString("") { "%02x".format(it) }
+                    if (!actualMd5.equals(expectedMd5, ignoreCase = true)) {
+                        tmpFile.delete()
+                        _downloadProgress.value = 0
+                        _updateState.value = UpdateState.AVAILABLE
+                        showToast("下载文件校验失败，请重试")
+                        return@launch
+                    }
+                }
+
+                // 重命名为正式文件
+                if (finalFile.exists()) finalFile.delete()
+                tmpFile.renameTo(finalFile)
+
+                _downloadFile.value = finalFile
                 _downloadProgress.value = 100
                 _updateState.value = UpdateState.DOWNLOADED
+                showToast("新版本已下载，点击安装")
             } catch (_: Exception) {
                 _updateState.value = UpdateState.AVAILABLE
                 _downloadProgress.value = 0
             }
         }
+    }
+
+    private fun verifyMd5(file: File, expected: String): Boolean {
+        if (expected.isBlank() || !file.exists()) return false
+        return try {
+            val digest = java.security.MessageDigest.getInstance("MD5")
+            val actual = digest.digest(java.io.FileInputStream(file).use { it.readBytes() })
+                .joinToString("") { "%02x".format(it) }
+            actual.equals(expected, ignoreCase = true)
+        } catch (_: Exception) { false }
     }
 
     fun installApk() {

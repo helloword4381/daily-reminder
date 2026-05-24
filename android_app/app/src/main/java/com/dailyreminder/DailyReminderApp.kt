@@ -166,7 +166,7 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
             title = { Text("下载完成") },
             text = {
                 Column {
-                    Text("新版本 ${updateInfo.version} 已准备好")
+                    Text("新版本 v${updateInfo.versionName} 已准备好")
                     Spacer(Modifier.height(4.dp))
                     Divider()
                     Spacer(Modifier.height(4.dp))
@@ -193,10 +193,10 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
             title = { Text("发现新版本") },
             text = {
                 Column {
-                    Text("${updateInfo.title} (${updateInfo.version})",
+                    Text("日常助手 v${updateInfo.versionName}",
                         style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.height(8.dp))
-                    Text(updateInfo.notes.take(200).ifBlank { "有可用更新" },
+                    Text("有可用更新，是否下载？",
                         style = MaterialTheme.typography.bodySmall)
                 }
             },

@@ -1,6 +1,7 @@
 {
-  "version": "1.2.17",
-  "title": "日常助手 v1.2.17",
-  "notes": "优化更新检查：直连 raw.githubusercontent + jsDelivr 备用\n移除 GitHub API 依赖\n简化 JSON 解析代码",
-  "downloadUrl": "https://github.com/helloword4381/daily-reminder/releases/download/v1.2.17/日常助手_v1.2.17_build23.apk"
+  "versionName": "1.2.17",
+  "versionCode": 23,
+  "buildNumber": 23,
+  "md5": "",
+  "downloadUrl": "https://github.com/helloword4381/daily-reminder/releases/download/build-23/日常助手_v1.2.17_build23.apk"
 }

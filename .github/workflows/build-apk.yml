@@ -49,6 +49,19 @@ jobs:
           echo "APK_PATH=$APK" >> $GITHUB_ENV
           echo "Found APK: $APK"
 
+      - name: Compute MD5 + Generate build-info.json
+        run: |
+          cd android_app
+          VERSION_NAME=$(grep 'versionName' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
+          VERSION_CODE=$(grep 'versionCode' app/build.gradle.kts | sed 's/.*= \(.*\)/\1/')
+          APK_PATH_VAL="${{ env.APK_PATH }}"
+          MD5=$(md5sum "$APK_PATH_VAL" | cut -d' ' -f1)
+          APK_NAME=$(basename "$APK_PATH_VAL")
+          printf '{"versionName":"%s","versionCode":%s,"buildNumber":%s,"md5":"%s","apkName":"%s"}\n' \
+            "$VERSION_NAME" "$VERSION_CODE" "${{ github.run_number }}" "$MD5" "$APK_NAME" > build-info.json
+          echo "build-info.json: $(cat build-info.json)"
+          echo "BUILD_INFO_PATH=build-info.json" >> $GITHUB_ENV
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -59,6 +72,8 @@ jobs:
             
             构建时间：${{ github.event.head_commit.timestamp || github.event.repository.updated_at }}
             提交：${{ github.sha }}
-          files: android_app/${{ env.APK_PATH }}
+          files: |
+            android_app/${{ env.APK_PATH }}
+            android_app/${{ env.BUILD_INFO_PATH }}
           generate_release_notes: false
           make_latest: true
