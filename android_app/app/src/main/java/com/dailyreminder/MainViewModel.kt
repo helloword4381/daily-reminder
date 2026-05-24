@@ -136,19 +136,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 从 raw.githubusercontent.com 读取 version.json */
+    /** 获取最新 Release 的 build-info.json（GitHub releases/latest/download 自动重定向到最新版） */
     private suspend fun fetchVersionJson(): String? {
         val urls = listOf(
-            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json",
-            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/version.json"
+            "https://github.com/helloword4381/daily-reminder/releases/latest/download/build-info.json",
+            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json"
         )
         for (urlStr in urls) {
             var conn: java.net.HttpURLConnection? = null
             try {
                 conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
-                conn.requestMethod = "GET"
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
                 conn.setRequestProperty("User-Agent", "DailyReminder/1.0")
                 conn.instanceFollowRedirects = true
                 if (conn.responseCode in 200..299) {
@@ -182,11 +181,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val remoteVer = extractJson(json, "versionName")
-                val dlUrl = extractJson(json, "downloadUrl")
                 val remoteMd5 = extractJson(json, "md5")
+                val apkName = extractJson(json, "apkName")
+                val buildNum = extractJson(json, "buildNumber")
+
+                // 从 build-info.json 构造下载 URL，否则 fallback 到 version.json 的 downloadUrl 字段
+                val dlUrl = if (apkName.isNotBlank() && buildNum.isNotBlank()) {
+                    "https://github.com/helloword4381/daily-reminder/releases/download/build-${buildNum}/${apkName}"
+                } else {
+                    extractJson(json, "downloadUrl")
+                }
                 val hasNew = isNewerVersion(remoteVer, currentVer)
 
-                // 即使 md5 为空也需要能下载（兼容旧版 version.json）
                 _updateInfo.value = UpdateInfo(
                     hasUpdate = hasNew,
                     versionName = remoteVer,
