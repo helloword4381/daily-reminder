@@ -137,11 +137,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 获取版本信息：主源 raw.githubusercontent（可靠无重定向），备用 GitHub releases/latest */
+    /** 获取版本信息：jsDelivr CDN（国内网宿节点），备用 raw.githubusercontent */
     private suspend fun fetchVersionJson(): String? {
         val urls = listOf(
-            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json",
-            "https://github.com/helloword4381/daily-reminder/releases/latest/download/build-info.json"
+            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/release/version.json",
+            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json"
         )
         for (urlStr in urls) {
             var conn: java.net.HttpURLConnection? = null
@@ -153,7 +153,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 conn.instanceFollowRedirects = true
                 if (conn.responseCode in 200..299) {
                     val text = conn.inputStream.bufferedReader().use { it.readText() }
-                    // 必须是 JSON 格式（以 { 开头），排除 HTML
                     if (text.trimStart().startsWith("{")) return text
                 }
             } catch (_: Exception) { } finally { conn?.disconnect() }
@@ -177,19 +176,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     .versionName ?: "0.0.0"
                 val json = fetchVersionJson() ?: return@launch
                 val remoteVer = extractJson(json, "versionName")
-                val remoteMd5 = extractJson(json, "md5")
-                val apkName = extractJson(json, "apkName")
-                // 用 latest/download 永久链接，不依赖 build 编号
-                val dlUrl = if (apkName.isNotBlank()) {
-                    "https://github.com/helloword4381/daily-reminder/releases/latest/download/${apkName}"
-                } else {
-                    extractJson(json, "downloadUrl")
-                }
-                val hasNew = isNewerVersion(remoteVer, currentVer)
-                if (hasNew) {
+                if (isNewerVersion(remoteVer, currentVer)) {
                     _updateInfo.value = UpdateInfo(
                         hasUpdate = true, versionName = remoteVer,
-                        downloadUrl = dlUrl, md5 = remoteMd5
+                        downloadUrl = extractJson(json, "downloadUrl"),
+                        md5 = extractJson(json, "md5")
                     )
                     _updateState.value = UpdateState.AVAILABLE
                 }
@@ -213,22 +204,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val remoteVer = extractJson(json, "versionName")
-                val remoteMd5 = extractJson(json, "md5")
-                val apkName = extractJson(json, "apkName")
-
-                // 用 latest/download 永久链接，不依赖 build 编号
-                val dlUrl = if (apkName.isNotBlank()) {
-                    "https://github.com/helloword4381/daily-reminder/releases/latest/download/${apkName}"
-                } else {
-                    extractJson(json, "downloadUrl")
-                }
                 val hasNew = isNewerVersion(remoteVer, currentVer)
 
                 _updateInfo.value = UpdateInfo(
                     hasUpdate = hasNew,
                     versionName = remoteVer,
-                    downloadUrl = dlUrl,
-                    md5 = remoteMd5
+                    downloadUrl = extractJson(json, "downloadUrl"),
+                    md5 = extractJson(json, "md5")
                 )
                 _updateState.value = if (hasNew) UpdateState.AVAILABLE else UpdateState.IDLE
                 if (!hasNew) showToast("已是最新版本 v$currentVer")

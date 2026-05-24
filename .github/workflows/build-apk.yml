@@ -7,7 +7,6 @@ on:
     paths:
       - 'android_app/**'
       - '.github/workflows/build-apk.yml'
-      - 'version.json'
 
 jobs:
   build:
@@ -66,6 +65,27 @@ jobs:
             "$VERSION_NAME" "$VERSION_CODE" "${{ github.run_number }}" "$MD5" "$APK_NAME" > build-info.json
           echo "build-info.json: $(cat build-info.json)"
           echo "BUILD_INFO_PATH=build-info.json" >> $GITHUB_ENV
+
+      - name: Publish to release/ directory (jsDelivr CDN)
+        run: |
+          VERSION_NAME=$(sed -n 's/.*versionName[[:space:]]*=[[:space:]]*"\(.*\)".*/\1/p' android_app/app/build.gradle.kts)
+          VERSION_CODE=$(sed -n 's/.*versionCode[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' android_app/app/build.gradle.kts)
+          APK_PATH_VAL="android_app/${{ env.APK_PATH }}"
+          MD5=$(md5sum "$APK_PATH_VAL" | cut -d' ' -f1)
+
+          mkdir -p release
+          cp "$APK_PATH_VAL" release/Daily-Aide.apk
+          printf '{"versionName":"%s","versionCode":%s,"md5":"%s","downloadUrl":"https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/release/Daily-Aide.apk"}\n' \
+            "$VERSION_NAME" "$VERSION_CODE" "$MD5" > release/version.json
+          echo "release/version.json: $(cat release/version.json)"
+
+      - name: Commit & Push release/ directory
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add release/
+          git diff --cached --quiet || git commit -m "release: v${VERSION_NAME} [skip ci]"
+          git push
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
