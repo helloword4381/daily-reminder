@@ -241,7 +241,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val code = conn.responseCode
                 val totalSize = if (downloadedBytes > 0 && code == 206) {
                     // 部分内容 —— 从 Content-Range 取总大小
-                    val range = conn.headerField("Content-Range")
+                    val range = conn.getHeaderField("Content-Range")
                     range?.substringAfter("/")?.trim()?.toLongOrNull() ?: conn.contentLengthLong
                 } else {
                     // 不支持续传，重新下载
