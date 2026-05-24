@@ -16,6 +16,8 @@ import com.dailyreminder.SettingsManager
 fun SettingsScreen(
     settings: SettingsManager,
     currentVersion: String = "",
+    darkMode: Boolean = false,
+    onToggleDarkMode: () -> Unit = {},
     onCheckUpdate: () -> Unit = {},
     updateInfo: com.dailyreminder.MainViewModel.UpdateInfo? = null,
     updateState: com.dailyreminder.MainViewModel.UpdateState? = null,
@@ -123,6 +125,25 @@ fun SettingsScreen(
                             }
                         )
                     }
+                }
+            }
+
+            // 深色模式
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("深色模式", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            if (darkMode) "当前：深色" else "当前：浅色",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(checked = darkMode, onCheckedChange = { onToggleDarkMode() })
                 }
             }
 

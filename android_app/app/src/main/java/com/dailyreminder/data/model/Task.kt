@@ -10,6 +10,7 @@ data class Task(
     val id: String = java.util.UUID.randomUUID().toString(),
     val content: String = "",
     val done: Boolean = false,
+    val priority: String = "日常",
     val createdAt: String = "",
     val updatedAt: String = ""
 ) {

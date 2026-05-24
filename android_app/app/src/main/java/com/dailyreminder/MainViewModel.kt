@@ -26,15 +26,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val allTasks: StateFlow<List<TaskEntity>> = taskDao.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val todayPending: StateFlow<List<TaskEntity>> = allTasks.map { list ->
-        val today = com.dailyreminder.data.model.Task.now().take(10)
-        list.filter { !it.done && it.createdAt.take(10) == today }
+    val pendingTasks: StateFlow<List<TaskEntity>> = allTasks.map { list ->
+        list.filter { !it.done }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addTask(content: String) {
+    /** 兼容旧代码：仍暴露 todayPending（暂时保留以防其他引用） */
+    val todayPending: StateFlow<List<TaskEntity>> = pendingTasks
+
+    fun addTask(content: String, priority: String = "日常") {
         viewModelScope.launch {
             val now = com.dailyreminder.data.model.Task.now()
-            val task = com.dailyreminder.data.model.Task(content = content, createdAt = now, updatedAt = now)
+            val task = com.dailyreminder.data.model.Task(
+                content = content, done = false, priority = priority,
+                createdAt = now, updatedAt = now
+            )
             taskDao.upsert(TaskEntity.fromTask(task))
         }
     }
@@ -111,6 +116,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _toastMessage = MutableStateFlow("")
     val toastMessage: StateFlow<String> = _toastMessage.asStateFlow()
+
+    /** 深色模式 */
+    private val _darkMode = MutableStateFlow(settings.isDarkMode)
+    val darkMode: StateFlow<Boolean> = _darkMode.asStateFlow()
+
+    fun toggleDarkMode() {
+        val newVal = !_darkMode.value
+        _darkMode.value = newVal
+        settings.isDarkMode = newVal
+    }
 
     /** 语义化版本比较 */
     private fun isNewerVersion(remote: String, current: String): Boolean {

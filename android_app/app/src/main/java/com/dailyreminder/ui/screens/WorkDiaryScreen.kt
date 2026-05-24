@@ -139,7 +139,9 @@ fun DiaryCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(entry.date, style = MaterialTheme.typography.bodySmall,
+                Text(
+                    entry.createdAt.take(16).replace("T", " "),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row {
                     IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {

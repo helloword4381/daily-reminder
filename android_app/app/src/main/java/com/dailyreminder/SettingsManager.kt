@@ -42,6 +42,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("screen_on_reminder", true)
         set(v) = prefs.edit().putBoolean("screen_on_reminder", v).apply()
 
+    // 深色模式
+    var isDarkMode: Boolean
+        get() = prefs.getBoolean("dark_mode", false)
+        set(v) = prefs.edit().putBoolean("dark_mode", v).apply()
+
     // 稍后安装的 APK 路径
     var pendingApkPath: String
         get() = prefs.getString("pending_apk_path", "") ?: ""

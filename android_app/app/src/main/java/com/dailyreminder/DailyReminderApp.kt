@@ -7,6 +7,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.dailyreminder.ui.theme.DailyReminderTheme
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -19,7 +20,7 @@ import androidx.navigation.compose.rememberNavController
 import com.dailyreminder.ui.screens.*
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    data object Home : Screen("home", "今日任务", Icons.Default.Home)
+    data object Home : Screen("home", "待办任务", Icons.Default.Home)
     data object History : Screen("history", "历史记录", Icons.Default.DateRange)
     data object Diary : Screen("diary", "工作日记", Icons.Default.Description)
     data object Toolbox : Screen("toolbox", "工具箱", Icons.Default.Build)
@@ -33,9 +34,10 @@ val screens = listOf(Screen.Home, Screen.History, Screen.Diary, Screen.Toolbox, 
 fun AppEntry(viewModel: MainViewModel = viewModel()) {
     val navController = rememberNavController()
     val allTasks by viewModel.allTasks.collectAsState()
-    val todayPending by viewModel.todayPending.collectAsState()
+    val pendingTasks by viewModel.pendingTasks.collectAsState()
     val diaryEntries by viewModel.diaryEntries.collectAsState()
     val towerRecords by viewModel.towerRecords.collectAsState()
+    val darkMode by viewModel.darkMode.collectAsState()
     val updateInfo by viewModel.updateInfo.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
     val downloadProgress by viewModel.downloadProgress.collectAsState()
@@ -123,6 +125,39 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
         )
     }
 
+    DailyReminderTheme(darkTheme = darkMode) {
+        AppContent(
+            navController = navController,
+            viewModel = viewModel,
+            allTasks = allTasks,
+            pendingTasks = pendingTasks,
+            diaryEntries = diaryEntries,
+            towerRecords = towerRecords,
+            updateInfo = updateInfo,
+            updateState = updateState,
+            downloadProgress = downloadProgress,
+            toastMsg = toastMsg,
+            snackbarHostState = snackbarHostState
+        )
+    }
+}
+
+@Composable
+private fun AppContent(
+    navController: androidx.navigation.NavHostController,
+    viewModel: MainViewModel,
+    allTasks: List<com.dailyreminder.data.db.TaskEntity>,
+    pendingTasks: List<com.dailyreminder.data.db.TaskEntity>,
+    diaryEntries: List<com.dailyreminder.data.db.WorkDiaryEntity>,
+    towerRecords: List<com.dailyreminder.data.db.TowerCalcEntity>,
+    updateInfo: com.dailyreminder.MainViewModel.UpdateInfo,
+    updateState: com.dailyreminder.MainViewModel.UpdateState,
+    downloadProgress: Int,
+    toastMsg: String,
+    snackbarHostState: SnackbarHostState
+) {
+    val darkMode by viewModel.darkMode.collectAsState()
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
@@ -156,8 +191,8 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
-                    tasks = todayPending,
-                    onAdd = { viewModel.addTask(it) },
+                    tasks = pendingTasks,
+                    onAdd = { content, priority -> viewModel.addTask(content, priority) },
                     onToggleDone = { id, done -> viewModel.toggleDone(id, done) },
                     onDelete = { viewModel.deleteTask(it) }
                 )
@@ -194,6 +229,8 @@ fun AppEntry(viewModel: MainViewModel = viewModel()) {
                 SettingsScreen(
                     settings = viewModel.settings,
                     currentVersion = version,
+                    darkMode = darkMode,
+                    onToggleDarkMode = { viewModel.toggleDarkMode() },
                     onCheckUpdate = { viewModel.checkForUpdate() },
                     updateInfo = updateInfo,
                     updateState = updateState,
