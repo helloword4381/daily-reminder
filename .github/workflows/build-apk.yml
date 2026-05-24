@@ -75,7 +75,7 @@ jobs:
 
           mkdir -p release
           cp "$APK_PATH_VAL" release/Daily-Aide.apk
-          printf '{"versionName":"%s","versionCode":%s,"md5":"%s","downloadUrl":"https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/release/Daily-Aide.apk"}\n' \
+          printf '{"versionName":"%s","versionCode":%s,"md5":"%s","downloadUrl":"https://ghfast.top/https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/Daily-Aide.apk"}\n' \
             "$VERSION_NAME" "$VERSION_CODE" "$MD5" > release/version.json
           echo "release/version.json: $(cat release/version.json)"
 

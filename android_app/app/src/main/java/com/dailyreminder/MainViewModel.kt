@@ -112,11 +112,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _toastMessage = MutableStateFlow("")
     val toastMessage: StateFlow<String> = _toastMessage.asStateFlow()
 
-    companion object {
-        private const val APK_FILENAME = "update.apk"
-        private const val APK_TMP = "update.apk.tmp"
-    }
-
     /** 语义化版本比较 */
     private fun isNewerVersion(remote: String, current: String): Boolean {
         val rParts = remote.split(".").map { it.toIntOrNull() ?: 0 }
@@ -137,19 +132,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** 获取版本信息：jsDelivr CDN（国内网宿节点），备用 raw.githubusercontent */
-    private suspend fun fetchVersionJson(): String? {
-        val urls = listOf(
+    companion object {
+        private const val APK_FILENAME = "update.apk"
+        private const val APK_TMP = "update.apk.tmp"
+        private const val USER_AGENT = "Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0"
+        private val VERSION_URLS = listOf(
+            "https://ghfast.top/https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/version.json",
             "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/release/version.json",
-            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/version.json"
+            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/version.json"
         )
-        for (urlStr in urls) {
+        private val APK_URLS = listOf(
+            "https://ghfast.top/https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/Daily-Aide.apk",
+            "https://cdn.jsdelivr.net/gh/helloword4381/daily-reminder@main/release/Daily-Aide.apk",
+            "https://raw.githubusercontent.com/helloword4381/daily-reminder/main/release/Daily-Aide.apk"
+        )
+    }
+
+    /** 获取版本信息：三级降级 ghfast → jsDelivr → raw.githubusercontent */
+    private suspend fun fetchVersionJson(): String? {
+        for (urlStr in VERSION_URLS) {
             var conn: java.net.HttpURLConnection? = null
             try {
                 conn = java.net.URL(urlStr).openConnection() as java.net.HttpURLConnection
                 conn.connectTimeout = 5000
                 conn.readTimeout = 5000
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0")
+                conn.setRequestProperty("User-Agent", USER_AGENT)
                 conn.instanceFollowRedirects = true
                 if (conn.responseCode in 200..299) {
                     val text = conn.inputStream.bufferedReader().use { it.readText() }
@@ -222,115 +229,130 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // ==================== 断点续传 + MD5 ====================
+    // ==================== 断点续传 + MD5（三级降级） ====================
+    /** 从一个 URL 下载 APK，成功返回文件流 info，失败返回 null */
+    private fun tryDownloadFrom(url: String, tmpFile: File, downloadedBytes: Long, expectedMd5: String): DownloadResult? {
+        return try {
+            var conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.setRequestProperty("User-Agent", USER_AGENT)
+            conn.instanceFollowRedirects = true
+
+            if (downloadedBytes > 0) {
+                conn.setRequestProperty("Range", "bytes=$downloadedBytes-")
+            }
+            conn.connect()
+
+            val code = conn.responseCode
+            val totalSize = if (downloadedBytes > 0 && code == 206) {
+                val range = conn.getHeaderField("Content-Range")
+                range?.substringAfter("/")?.trim()?.toLongOrNull() ?: conn.contentLengthLong
+            } else {
+                if (tmpFile.exists()) tmpFile.delete()
+                conn.disconnect()
+                conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 10000
+                conn.readTimeout = 10000
+                conn.setRequestProperty("User-Agent", USER_AGENT)
+                conn.instanceFollowRedirects = true
+                conn.connect()
+                conn.contentLengthLong
+            }
+            DownloadResult(conn, totalSize)
+        } catch (_: Exception) { null }
+    }
+
+    private data class DownloadResult(val conn: java.net.HttpURLConnection, val totalSize: Long)
+
     fun downloadApk() {
         val info = _updateInfo.value
-        if (info.downloadUrl.isBlank()) return
 
         _updateState.value = UpdateState.DOWNLOADING
         _downloadProgress.value = 0
         val expectedMd5 = info.md5
+        val ctx = getApplication<Application>()
+        val tmpFile = File(ctx.cacheDir, APK_TMP)
+        var downloadedBytes = tmpFile.length()
+        val finalFile = File(ctx.cacheDir, APK_FILENAME)
+
+        // 已有完整文件且 MD5 匹配 → 跳过下载
+        if (finalFile.exists() && verifyMd5(finalFile, expectedMd5)) {
+            _downloadFile.value = finalFile
+            _downloadProgress.value = 100
+            _updateState.value = UpdateState.DOWNLOADED
+            return
+        }
 
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                val ctx = getApplication<Application>()
-                val tmpFile = File(ctx.cacheDir, APK_TMP)
-                var downloadedBytes = tmpFile.length()
+            // 三级降级：ghfast → jsDelivr → raw（version.json 中的 downloadUrl 已经是最快的）
+            val downloadUrls = mutableListOf(info.downloadUrl)
+            for (fallback in APK_URLS) {
+                if (fallback != info.downloadUrl) downloadUrls.add(fallback)
+            }
 
-                // 如果已有完整文件且 MD5 匹配则跳过下载
-                val finalFile = File(ctx.cacheDir, APK_FILENAME)
-                if (finalFile.exists() && verifyMd5(finalFile, expectedMd5)) {
+            for (url in downloadUrls) {
+                val result = tryDownloadFrom(url, tmpFile, downloadedBytes, expectedMd5) ?: continue
+                val (conn, totalSize) = result
+
+                try {
+                    val input = conn.inputStream
+                    val raf = java.io.RandomAccessFile(tmpFile, "rw")
+                    raf.seek(downloadedBytes)
+
+                    val digest = if (expectedMd5.isNotBlank())
+                        java.security.MessageDigest.getInstance("MD5") else null
+                    if (digest != null && downloadedBytes > 0) {
+                        val existing = java.io.FileInputStream(tmpFile).use { it.readBytes() }
+                        digest.update(existing)
+                    }
+
+                    val buffer = ByteArray(8192)
+                    var bytesRead: Int
+                    var totalRead = downloadedBytes
+
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        raf.write(buffer, 0, bytesRead)
+                        totalRead += bytesRead
+                        digest?.update(buffer, 0, bytesRead)
+                        if (totalSize > 0) {
+                            _downloadProgress.value = ((totalRead * 100) / totalSize).toInt()
+                        }
+                    }
+                    raf.close()
+                    input.close()
+                    conn.disconnect()
+
+                    // MD5 校验
+                    if (digest != null) {
+                        val actualMd5 = digest.digest().joinToString("") { "%02x".format(it) }
+                        if (!actualMd5.equals(expectedMd5, ignoreCase = true)) {
+                            tmpFile.delete()
+                            downloadedBytes = 0
+                            _downloadProgress.value = 0
+                            // 不清除状态，继续尝试下一个 URL
+                            continue
+                        }
+                    }
+
+                    // 成功！重命名为正式文件
+                    if (finalFile.exists()) finalFile.delete()
+                    tmpFile.renameTo(finalFile)
                     _downloadFile.value = finalFile
                     _downloadProgress.value = 100
                     _updateState.value = UpdateState.DOWNLOADED
+                    showToast("新版本已下载，点击安装")
                     return@launch
-                }
-
-                val USER_AGENT = "Mozilla/5.0 (Android 14; Mobile; rv:130.0) Gecko/130.0 Firefox/130.0"
-                var conn = java.net.URL(info.downloadUrl).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 15000
-                conn.readTimeout = 15000
-                conn.setRequestProperty("User-Agent", USER_AGENT)
-                conn.instanceFollowRedirects = true
-
-                // 续传：有部分文件则设置 Range
-                if (downloadedBytes > 0) {
-                    conn.setRequestProperty("Range", "bytes=$downloadedBytes-")
-                }
-                conn.connect()
-
-                val code = conn.responseCode
-                val totalSize = if (downloadedBytes > 0 && code == 206) {
-                    // 部分内容 —— 从 Content-Range 取总大小
-                    val range = conn.getHeaderField("Content-Range")
-                    range?.substringAfter("/")?.trim()?.toLongOrNull() ?: conn.contentLengthLong
-                } else {
-                    // 不支持续传，重新下载
-                    if (tmpFile.exists()) tmpFile.delete()
-                    downloadedBytes = 0
+                } catch (_: Exception) {
                     conn.disconnect()
-                    // 重新连接（不支持 Range），复用 conn 变量
-                    conn = java.net.URL(info.downloadUrl).openConnection() as java.net.HttpURLConnection
-                    conn.connectTimeout = 15000
-                    conn.readTimeout = 15000
-                    conn.setRequestProperty("User-Agent", USER_AGENT)
-                    conn.instanceFollowRedirects = true
-                    conn.connect()
-                    conn.contentLengthLong
+                    // 尝试下一个 URL
                 }
-
-                val input = conn.inputStream
-                val raf = java.io.RandomAccessFile(tmpFile, "rw")
-                raf.seek(downloadedBytes)
-
-                val digest = if (expectedMd5.isNotBlank()) java.security.MessageDigest.getInstance("MD5") else null
-                // 如果有续传部分，需要先算已有内容的 MD5
-                if (digest != null && downloadedBytes > 0) {
-                    val existing = java.io.FileInputStream(tmpFile).use { it.readBytes() }
-                    digest.update(existing)
-                }
-
-                val buffer = ByteArray(8192)
-                var bytesRead: Int
-                var totalRead = downloadedBytes
-
-                while (input.read(buffer).also { bytesRead = it } != -1) {
-                    raf.write(buffer, 0, bytesRead)
-                    totalRead += bytesRead
-                    digest?.update(buffer, 0, bytesRead)
-                    if (totalSize > 0) {
-                        _downloadProgress.value = ((totalRead * 100) / totalSize).toInt()
-                    }
-                }
-                raf.close()
-                input.close()
-                conn.disconnect()
-
-                // MD5 校验
-                if (digest != null) {
-                    val actualMd5 = digest.digest().joinToString("") { "%02x".format(it) }
-                    if (!actualMd5.equals(expectedMd5, ignoreCase = true)) {
-                        tmpFile.delete()
-                        _downloadProgress.value = 0
-                        _updateState.value = UpdateState.AVAILABLE
-                        showToast("下载文件校验失败，请重试")
-                        return@launch
-                    }
-                }
-
-                // 重命名为正式文件
-                if (finalFile.exists()) finalFile.delete()
-                tmpFile.renameTo(finalFile)
-
-                _downloadFile.value = finalFile
-                _downloadProgress.value = 100
-                _updateState.value = UpdateState.DOWNLOADED
-                showToast("新版本已下载，点击安装")
-            } catch (_: Exception) {
-                _updateState.value = UpdateState.AVAILABLE
-                _downloadProgress.value = 0
-                showToast("下载失败，请在浏览器中手动下载")
             }
+
+            // 所有 URL 都失败
+            _updateState.value = UpdateState.AVAILABLE
+            _downloadProgress.value = 0
+            showToast("下载失败，请在浏览器中手动下载")
         }
     }
 
