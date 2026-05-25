@@ -439,16 +439,16 @@ fun SettingsScreen(
     // 更新日志
     if (showChangelog) {
         val changelog = listOf(
+            "v1.6.2" to "修复图片选择器（改用ACTION_PICK），补全相册权限声明",
+            "v1.6.1" to "补全AndroidManifest相册读取权限",
+            "v1.6.0" to "删除确认对话框+日记图片+大输入页面+相册权限+内嵌更新日志",
             "v1.5.2" to "安装改用ACTION_INSTALL_PACKAGE，修复国产ROM安装闪退问题",
-            "v1.5.1-test" to "安装功能测试版",
-            "v1.5.0-test" to "偏位计算器键盘Next跳转优化",
             "v1.4.6" to "修复安装闪退，补全REQUEST_INSTALL_PACKAGES权限",
             "v1.4.5" to "偏位计算器键盘Next/Done跳转",
             "v1.4.4" to "跟随系统主题、顶部高度缩减",
             "v1.4.3" to "JSON解析修复（extractJson改用JSONObject）",
             "v1.4.2" to "数据库保留迁移，不再清数据",
             "v1.4.1" to "workflow提前推送version.json",
-            "v1.4.0" to "暗色模式+待办任务+紧急日常双FAB+时分秒",
         )
 
         AlertDialog(

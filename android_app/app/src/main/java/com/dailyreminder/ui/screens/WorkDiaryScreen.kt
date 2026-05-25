@@ -140,13 +140,13 @@ fun DiaryInputPage(
     var content by remember { mutableStateOf(editEntry?.content ?: "") }
     var imagePath by remember { mutableStateOf(editEntry?.imagePath ?: "") }
 
-    // 图片选择器
+    // 图片选择器（用 ACTION_PICK 兼容性最好）
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            // 保存图片路径到 content:// URI
-            imagePath = it.toString()
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data
+        if (uri != null) {
+            imagePath = uri.toString()
         }
     }
 
@@ -155,7 +155,10 @@ fun DiaryInputPage(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            imagePickerLauncher.launch("image/*")
+            val intent = android.content.Intent(android.content.Intent.ACTION_PICK).apply {
+                type = "image/*"
+            }
+            imagePickerLauncher.launch(intent)
         }
     }
 
@@ -242,7 +245,10 @@ fun DiaryInputPage(
                     if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, permission)
                         == android.content.pm.PackageManager.PERMISSION_GRANTED
                     ) {
-                        imagePickerLauncher.launch("image/*")
+                        val intent = android.content.Intent(android.content.Intent.ACTION_PICK).apply {
+                            type = "image/*"
+                        }
+                        imagePickerLauncher.launch(intent)
                     } else {
                         permissionLauncher.launch(permission)
                     }
