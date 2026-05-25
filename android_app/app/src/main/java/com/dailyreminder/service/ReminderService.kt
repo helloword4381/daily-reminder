@@ -8,7 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import com.dailyreminder.SettingsManager
 import com.dailyreminder.data.db.AppDatabase
 import kotlinx.coroutines.*
@@ -18,16 +20,28 @@ class ReminderService : Service() {
 
     private lateinit var notificationHelper: NotificationHelper
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var screenOnReceiver: ScreenOnReceiver? = null
+    private var screenReceiver: ScreenBroadcastReceiver? = null
+    private var fallbackHandler: Handler? = null
+    private var lastNotifyTime = 0L
 
     override fun onCreate() {
         super.onCreate()
         notificationHelper = NotificationHelper(this)
         notificationHelper.createChannels()
 
-        // 只在屏幕亮起时检查一次，不再 30 秒轮询
-        screenOnReceiver = ScreenOnReceiver()
-        try { registerReceiver(screenOnReceiver, IntentFilter(Intent.ACTION_SCREEN_ON)) } catch (_: Exception) { }
+        // 亮屏 + 解锁广播：部分 ROM 只发其中一个，两个都收
+        screenReceiver = ScreenBroadcastReceiver()
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_USER_PRESENT)
+            }
+            registerReceiver(screenReceiver, filter)
+        } catch (_: Exception) { }
+
+        // 后台兜底：10 分钟一次（前台服务存活时有效）
+        fallbackHandler = Handler(Looper.getMainLooper())
+        startFallbackCheck()
 
         scheduleAlarms()
     }
@@ -41,9 +55,31 @@ class ReminderService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        screenOnReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) { } }
+        screenReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) { } }
+        fallbackHandler?.removeCallbacksAndMessages(null)
         scope.cancel()
         super.onDestroy()
+    }
+
+    /** 每 10 分钟兜底检查一次（防丢广播） */
+    private fun startFallbackCheck() {
+        val handler = fallbackHandler ?: return
+        val settings = SettingsManager(this)
+        if (settings.screenOnReminder) {
+            val now = Calendar.getInstance()
+            val h = now.get(Calendar.HOUR_OF_DAY)
+            val m = now.get(Calendar.MINUTE)
+            val inWorkHours = (h in 8..11) || (h == 12 && m == 0) ||
+                    (h in 14..17) || (h == 18 && m == 0)
+            if (inWorkHours) {
+                val nowMs = System.currentTimeMillis()
+                if (nowMs - lastNotifyTime > 600_000) { // 10 分钟
+                    lastNotifyTime = nowMs
+                    checkAndNotifyPending(this)
+                }
+            }
+        }
+        handler.postDelayed({ startFallbackCheck() }, 600_000) // 10 分钟
     }
 
     private fun scheduleAlarms() {
@@ -80,18 +116,21 @@ class ReminderService : Service() {
         } catch (_: Exception) { }
     }
 
-    /** 屏幕亮起时检查是否有未完成任务 */
-    inner class ScreenOnReceiver : BroadcastReceiver() {
+    /** 亮屏 / 解锁时检查 */
+    inner class ScreenBroadcastReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_SCREEN_ON) {
-                val settings = SettingsManager(context)
-                if (!settings.screenOnReminder) return
-                val now = Calendar.getInstance()
-                val h = now.get(Calendar.HOUR_OF_DAY)
-                val m = now.get(Calendar.MINUTE)
-                val inWorkHours = (h in 8..11) || (h == 12 && m == 0) ||
-                        (h in 14..17) || (h == 18 && m == 0)
-                if (inWorkHours) checkAndNotifyPending(context)
+            val action = intent.action
+            if (action != Intent.ACTION_SCREEN_ON && action != Intent.ACTION_USER_PRESENT) return
+            val settings = SettingsManager(context)
+            if (!settings.screenOnReminder) return
+            val now = Calendar.getInstance()
+            val h = now.get(Calendar.HOUR_OF_DAY)
+            val m = now.get(Calendar.MINUTE)
+            val inWorkHours = (h in 8..11) || (h == 12 && m == 0) ||
+                    (h in 14..17) || (h == 18 && m == 0)
+            if (inWorkHours) {
+                lastNotifyTime = System.currentTimeMillis()
+                checkAndNotifyPending(context)
             }
         }
     }
@@ -130,7 +169,6 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
         }
         if (!enabled) return
 
-        // 重新注册下次闹钟
         val hour = intent.getIntExtra("hour", 8)
         val minute = intent.getIntExtra("minute", 0)
         val am = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
