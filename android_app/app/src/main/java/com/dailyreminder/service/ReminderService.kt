@@ -6,7 +6,6 @@ import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -20,8 +19,7 @@ class ReminderService : Service() {
 
     private lateinit var notificationHelper: NotificationHelper
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var screenReceiver: ScreenBroadcastReceiver? = null
-    private var fallbackHandler: Handler? = null
+    private var intervalHandler: Handler? = null
     private var lastNotifyTime = 0L
 
     override fun onCreate() {
@@ -29,19 +27,9 @@ class ReminderService : Service() {
         notificationHelper = NotificationHelper(this)
         notificationHelper.createChannels()
 
-        // 亮屏 + 解锁广播：部分 ROM 只发其中一个，两个都收
-        screenReceiver = ScreenBroadcastReceiver()
-        try {
-            val filter = IntentFilter().apply {
-                addAction(Intent.ACTION_SCREEN_ON)
-                addAction(Intent.ACTION_USER_PRESENT)
-            }
-            registerReceiver(screenReceiver, filter)
-        } catch (_: Exception) { }
-
-        // 后台兜底：10 分钟一次（前台服务存活时有效）
-        fallbackHandler = Handler(Looper.getMainLooper())
-        startFallbackCheck()
+        // 工作时间每 30 分钟推送一次锁屏通知
+        intervalHandler = Handler(Looper.getMainLooper())
+        startWorkHourCheck()
 
         scheduleAlarms()
     }
@@ -55,31 +43,31 @@ class ReminderService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        screenReceiver?.let { try { unregisterReceiver(it) } catch (_: Exception) { } }
-        fallbackHandler?.removeCallbacksAndMessages(null)
+        intervalHandler?.removeCallbacksAndMessages(null)
         scope.cancel()
         super.onDestroy()
     }
 
-    /** 每 10 分钟兜底检查一次（防丢广播） */
-    private fun startFallbackCheck() {
-        val handler = fallbackHandler ?: return
+    /** 工作时间每 30 分钟检查一次 */
+    private fun startWorkHourCheck() {
+        val handler = intervalHandler ?: return
         val settings = SettingsManager(this)
         if (settings.screenOnReminder) {
             val now = Calendar.getInstance()
             val h = now.get(Calendar.HOUR_OF_DAY)
-            val m = now.get(Calendar.MINUTE)
-            val inWorkHours = (h in 8..11) || (h == 12 && m == 0) ||
-                    (h in 14..17) || (h == 18 && m == 0)
+            val inWorkHours = (h >= 8 && h < 12) || (h >= 14 && h < 18)
             if (inWorkHours) {
                 val nowMs = System.currentTimeMillis()
-                if (nowMs - lastNotifyTime > 600_000) { // 10 分钟
+                // 首次启动立即检查一次，之后每 30 分钟
+                if (lastNotifyTime == 0L || nowMs - lastNotifyTime >= 1_800_000) {
                     lastNotifyTime = nowMs
                     checkAndNotifyPending(this)
                 }
+            } else {
+                lastNotifyTime = 0L // 非工作时间重置计时
             }
         }
-        handler.postDelayed({ startFallbackCheck() }, 600_000) // 10 分钟
+        handler.postDelayed({ startWorkHourCheck() }, 1_800_000) // 30 分钟
     }
 
     private fun scheduleAlarms() {
@@ -114,25 +102,6 @@ class ReminderService : Service() {
                 am.setExact(AlarmManager.RTC_WAKEUP, cal.timeInMillis, pi)
             }
         } catch (_: Exception) { }
-    }
-
-    /** 亮屏 / 解锁时检查 */
-    inner class ScreenBroadcastReceiver : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val action = intent.action
-            if (action != Intent.ACTION_SCREEN_ON && action != Intent.ACTION_USER_PRESENT) return
-            val settings = SettingsManager(context)
-            if (!settings.screenOnReminder) return
-            val now = Calendar.getInstance()
-            val h = now.get(Calendar.HOUR_OF_DAY)
-            val m = now.get(Calendar.MINUTE)
-            val inWorkHours = (h in 8..11) || (h == 12 && m == 0) ||
-                    (h in 14..17) || (h == 18 && m == 0)
-            if (inWorkHours) {
-                lastNotifyTime = System.currentTimeMillis()
-                checkAndNotifyPending(context)
-            }
-        }
     }
 
     companion object {
