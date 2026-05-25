@@ -439,6 +439,7 @@ fun SettingsScreen(
     // 更新日志
     if (showChangelog) {
         val changelog = listOf(
+            "v1.6.3" to "修复通知太频繁：移除30秒轮询，仅亮屏时检查通知",
             "v1.6.2" to "修复图片选择器（改用ACTION_PICK），补全相册权限声明",
             "v1.6.1" to "补全AndroidManifest相册读取权限",
             "v1.6.0" to "删除确认对话框+日记图片+大输入页面+相册权限+内嵌更新日志",
