@@ -1,43 +1,47 @@
 package com.dailyreminder.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dailyreminder.data.db.WorkDiaryEntity
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkDiaryScreen(
     entries: List<WorkDiaryEntity>,
-    onAdd: (date: String, title: String, content: String) -> Unit,
+    onAdd: (date: String, title: String, content: String, imagePath: String) -> Unit,
     onUpdate: (WorkDiaryEntity) -> Unit,
     onDelete: (WorkDiaryEntity) -> Unit
 ) {
-    var showDialog by remember { mutableStateOf(false) }
+    var showInputPage by remember { mutableStateOf(false) }
     var editEntry by remember { mutableStateOf<WorkDiaryEntity?>(null) }
-    var editDate by remember { mutableStateOf("") }
-    var editTitle by remember { mutableStateOf("") }
-    var editContent by remember { mutableStateOf("") }
+    var deleteTarget by remember { mutableStateOf<WorkDiaryEntity?>(null) }
+    var previewImagePath by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("工作日记") }) },
+        topBar = {
+            TopAppBar(title = { Text("工作日记") })
+        },
         floatingActionButton = {
             FloatingActionButton(onClick = {
                 editEntry = null
-                editDate = com.dailyreminder.data.model.WorkDiary.today()
-                editTitle = ""
-                editContent = ""
-                showDialog = true
+                showInputPage = true
             }) { Icon(Icons.Default.Add, contentDescription = "写日记") }
         }
     ) { padding ->
@@ -59,65 +63,199 @@ fun WorkDiaryScreen(
                         entry = entry,
                         onEdit = {
                             editEntry = entry
-                            editDate = entry.date
-                            editTitle = entry.title
-                            editContent = entry.content
-                            showDialog = true
+                            showInputPage = true
                         },
-                        onDelete = { onDelete(entry) }
+                        onDelete = { deleteTarget = entry },
+                        onImageClick = { path -> previewImagePath = path }
                     )
                 }
             }
         }
     }
 
-    // 新增/编辑 对话框
-    if (showDialog) {
+    // 删除确认对话框
+    if (deleteTarget != null) {
         AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text(if (editEntry == null) "写日记" else "编辑日记") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = editDate,
-                        onValueChange = { editDate = it },
-                        label = { Text("日期") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = editTitle,
-                        onValueChange = { editTitle = it },
-                        label = { Text("标题") },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = editContent,
-                        onValueChange = { editContent = it },
-                        label = { Text("内容") },
-                        minLines = 3,
-                        maxLines = 8
-                    )
-                }
-            },
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("确认删除") },
+            text = { Text("确定要删除「${deleteTarget!!.title}」吗？删除后无法恢复。") },
             confirmButton = {
                 TextButton(onClick = {
-                    if (editTitle.isNotBlank()) {
-                        if (editEntry != null) {
-                            onUpdate(editEntry!!.copy(
-                                date = editDate, title = editTitle, content = editContent,
-                                updatedAt = com.dailyreminder.data.model.WorkDiary.now()
-                            ))
-                        } else {
-                            onAdd(editDate, editTitle, editContent)
-                        }
-                        showDialog = false
-                    }
-                }) { Text("保存") }
+                    onDelete(deleteTarget!!)
+                    deleteTarget = null
+                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { showDialog = false }) { Text("取消") }
+                TextButton(onClick = { deleteTarget = null }) { Text("取消") }
             }
         )
+    }
+
+    // 图片预览 → 打开系统相册查看
+    if (previewImagePath != null) {
+        val ctx = LocalContext.current
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                data = android.net.Uri.parse(previewImagePath)
+                flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                putExtra("android.intent.extra.REFERRER", android.net.Uri.parse("android-app://${ctx.packageName}"))
+            }
+            ctx.startActivity(intent)
+        } catch (_: Exception) { }
+        previewImagePath = null
+    }
+
+    // 完整的输入页面
+    if (showInputPage) {
+        DiaryInputPage(
+            editEntry = editEntry,
+            onSave = { date, title, content, imagePath ->
+                if (editEntry != null) {
+                    onUpdate(editEntry!!.copy(
+                        date = date, title = title, content = content,
+                        imagePath = imagePath,
+                        updatedAt = com.dailyreminder.data.model.WorkDiary.now()
+                    ))
+                } else {
+                    onAdd(date, title, content, imagePath)
+                }
+                showInputPage = false
+            },
+            onCancel = { showInputPage = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DiaryInputPage(
+    editEntry: WorkDiaryEntity?,
+    onSave: (date: String, title: String, content: String, imagePath: String) -> Unit,
+    onCancel: () -> Unit
+) {
+    val ctx = LocalContext.current
+    var date by remember { mutableStateOf(editEntry?.date ?: com.dailyreminder.data.model.WorkDiary.today()) }
+    var title by remember { mutableStateOf(editEntry?.title ?: "") }
+    var content by remember { mutableStateOf(editEntry?.content ?: "") }
+    var imagePath by remember { mutableStateOf(editEntry?.imagePath ?: "") }
+
+    // 图片选择器
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            // 保存图片路径到 content:// URI
+            imagePath = it.toString()
+        }
+    }
+
+    // 图片读取权限
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            imagePickerLauncher.launch("image/*")
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(if (editEntry == null) "写日记" else "编辑日记") },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        if (title.isNotBlank()) {
+                            onSave(date, title, content, imagePath)
+                        }
+                    }) { Text("保存") }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedTextField(
+                value = date,
+                onValueChange = { date = it },
+                label = { Text("日期") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("标题") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = content,
+                onValueChange = { content = it },
+                label = { Text("内容") },
+                minLines = 6,
+                maxLines = 20,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            )
+
+            // 图片选择区域
+            HorizontalDivider()
+            Text("附件图片", style = MaterialTheme.typography.titleSmall)
+
+            if (imagePath.isNotBlank()) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Image, null,
+                            tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(8.dp))
+                        Text("已选择一张图片", modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { imagePath = "" }) { Text("移除") }
+                    }
+                }
+            }
+
+            OutlinedButton(
+                onClick = {
+                    val permission = if (android.os.Build.VERSION.SDK_INT >= 33)
+                        android.Manifest.permission.READ_MEDIA_IMAGES
+                    else
+                        android.Manifest.permission.READ_EXTERNAL_STORAGE
+
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, permission)
+                        == android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) {
+                        imagePickerLauncher.launch("image/*")
+                    } else {
+                        permissionLauncher.launch(permission)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Image, null)
+                Spacer(Modifier.width(8.dp))
+                Text("从相册选择图片")
+            }
+
+            Spacer(Modifier.height(32.dp))
+        }
     }
 }
 
@@ -125,7 +263,8 @@ fun WorkDiaryScreen(
 fun DiaryCard(
     entry: WorkDiaryEntity,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onImageClick: (String) -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -159,6 +298,25 @@ fun DiaryCard(
                 Spacer(Modifier.height(4.dp))
             }
             Text(entry.content, style = MaterialTheme.typography.bodyMedium)
+
+            // 图片显示
+            if (entry.imagePath.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 150.dp)
+                        .clickable { onImageClick(entry.imagePath) },
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("点击预览图片",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
         }
     }
 }

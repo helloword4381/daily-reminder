@@ -25,6 +25,7 @@ fun HomeScreen(
     var showDialog by remember { mutableStateOf(false) }
     var dialogPriority by remember { mutableStateOf("日常") }
     var newTaskText by remember { mutableStateOf("") }
+    var deleteTarget by remember { mutableStateOf<TaskEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -81,11 +82,29 @@ fun HomeScreen(
                     TaskCard(
                         task = task,
                         onToggleDone = { onToggleDone(task.id, task.done) },
-                        onDelete = { onDelete(task.id) }
+                        onDelete = { deleteTarget = task }
                     )
                 }
             }
         }
+    }
+
+    // 删除确认对话框
+    if (deleteTarget != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("确认删除") },
+            text = { Text("确定要删除这个任务吗？删除后无法恢复。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(deleteTarget!!.id)
+                    deleteTarget = null
+                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) { Text("取消") }
+            }
+        )
     }
 
     if (showDialog) {

@@ -39,6 +39,7 @@ fun SettingsScreen(
     // 时间选择器弹出
     var showMorningPicker by remember { mutableStateOf(false) }
     var showAfternoonPicker by remember { mutableStateOf(false) }
+    var showChangelog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("设置") }) }
@@ -364,13 +365,7 @@ fun SettingsScreen(
                             Text("检查更新")
                         }
                         OutlinedButton(
-                            onClick = {
-                                val intent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://github.com/helloword4381/daily-reminder/releases")
-                                ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
-                                try { ctx.startActivity(intent) } catch (_: Exception) { }
-                            },
+                            onClick = { showChangelog = true },
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(Icons.Default.Info, null, modifier = Modifier.size(18.dp))
@@ -435,6 +430,41 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showAfternoonPicker = false }) { Text("取消") }
+            }
+        )
+    }
+
+    // 更新日志
+    if (showChangelog) {
+        val changelog = listOf(
+            "v1.5.2" to "安装改用ACTION_INSTALL_PACKAGE，修复国产ROM安装闪退问题",
+            "v1.5.1-test" to "安装功能测试版",
+            "v1.5.0-test" to "偏位计算器键盘Next跳转优化",
+            "v1.4.6" to "修复安装闪退，补全REQUEST_INSTALL_PACKAGES权限",
+            "v1.4.5" to "偏位计算器键盘Next/Done跳转",
+            "v1.4.4" to "跟随系统主题、顶部高度缩减",
+            "v1.4.3" to "JSON解析修复（extractJson改用JSONObject）",
+            "v1.4.2" to "数据库保留迁移，不再清数据",
+            "v1.4.1" to "workflow提前推送version.json",
+            "v1.4.0" to "暗色模式+待办任务+紧急日常双FAB+时分秒",
+        )
+
+        AlertDialog(
+            onDismissRequest = { showChangelog = false },
+            title = { Text("更新日志") },
+            text = {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.heightIn(max = 400.dp)
+                ) {
+                    items(changelog) { (ver, desc) ->
+                        Text("• $ver：$desc",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showChangelog = false }) { Text("关闭") }
             }
         )
     }

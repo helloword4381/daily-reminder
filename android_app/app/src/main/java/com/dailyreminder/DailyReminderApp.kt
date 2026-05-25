@@ -205,13 +205,14 @@ private fun AppContent(
             composable(Screen.History.route) {
                 HistoryScreen(
                     tasks = allTasks,
-                    onToggleDone = { id, done -> viewModel.toggleDone(id, done) }
+                    onToggleDone = { id, done -> viewModel.toggleDone(id, done) },
+                    onDelete = { viewModel.deleteTask(it) }
                 )
             }
             composable(Screen.Diary.route) {
                 WorkDiaryScreen(
                     entries = diaryEntries,
-                    onAdd = { date, title, content -> viewModel.addDiary(date, title, content) },
+                    onAdd = { date, title, content, imagePath -> viewModel.addDiary(date, title, content, imagePath) },
                     onUpdate = { viewModel.updateDiary(it) },
                     onDelete = { viewModel.deleteDiary(it) }
                 )

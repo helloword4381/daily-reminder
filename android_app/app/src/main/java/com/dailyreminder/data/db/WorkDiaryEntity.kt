@@ -9,13 +9,14 @@ data class WorkDiaryEntity(
     val date: String,
     val title: String,
     val content: String,
+    val imagePath: String = "",
     val createdAt: String = "",
     val updatedAt: String = ""
 ) {
-    fun toModel() = com.dailyreminder.data.model.WorkDiary(id, date, title, content, createdAt, updatedAt)
+    fun toModel() = com.dailyreminder.data.model.WorkDiary(id, date, title, content, imagePath, createdAt, updatedAt)
     companion object {
         fun fromModel(m: com.dailyreminder.data.model.WorkDiary) = WorkDiaryEntity(
-            id = m.id, date = m.date, title = m.title, content = m.content,
+            id = m.id, date = m.date, title = m.title, content = m.content, imagePath = m.imagePath,
             createdAt = m.createdAt, updatedAt = m.updatedAt
         )
     }

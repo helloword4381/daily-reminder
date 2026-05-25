@@ -4,10 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +19,8 @@ import java.util.*
 @Composable
 fun HistoryScreen(
     tasks: List<TaskEntity>,
-    onToggleDone: (String, Boolean) -> Unit
+    onToggleDone: (String, Boolean) -> Unit,
+    onDelete: (String) -> Unit
 ) {
     var currentDate by remember {
         mutableStateOf(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()))
@@ -33,11 +31,11 @@ fun HistoryScreen(
         "${parts[0]}年${parts[1].toInt()}月${parts[2].toInt()}日"
     }
 
+    var deleteTarget by remember { mutableStateOf<TaskEntity?>(null) }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("历史记录") }
-            )
+            TopAppBar(title = { Text("历史记录") })
         }
     ) { padding ->
         Column(
@@ -45,7 +43,6 @@ fun HistoryScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            // 日期选择栏
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -91,19 +88,39 @@ fun HistoryScreen(
                     items(tasks, key = { it.id }) { task ->
                         HistoryTaskCard(
                             task = task,
-                            onToggleDone = { onToggleDone(task.id, task.done) }
+                            onToggleDone = { onToggleDone(task.id, task.done) },
+                            onDelete = { deleteTarget = task }
                         )
                     }
                 }
             }
         }
     }
+
+    // 删除确认对话框
+    if (deleteTarget != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTarget = null },
+            title = { Text("确认删除") },
+            text = { Text("确定要删除这个任务吗？删除后无法恢复。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(deleteTarget!!.id)
+                    deleteTarget = null
+                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTarget = null }) { Text("取消") }
+            }
+        )
+    }
 }
 
 @Composable
 fun HistoryTaskCard(
     task: TaskEntity,
-    onToggleDone: () -> Unit
+    onToggleDone: () -> Unit,
+    onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -130,12 +147,15 @@ fun HistoryTaskCard(
                 color = if (task.done) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.onSurface
             )
-            // 显示时间
             Text(
                 text = task.createdAt.takeLast(8).take(5),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Default.Delete, contentDescription = "删除",
+                    modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
+            }
         }
     }
 }

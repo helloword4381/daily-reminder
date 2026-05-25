@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [TaskEntity::class, WorkDiaryEntity::class, TowerCalcEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -29,10 +29,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // v4 → v5: 占位，后续实际迁移在此追加
+        // v4 → v5: 占位
         private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) { }
+        }
+
+        // v5 → v6: work_diary 加 imagePath 字段
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 暂无变更
+                db.execSQL("ALTER TABLE work_diary ADD COLUMN imagePath TEXT NOT NULL DEFAULT ''")
             }
         }
 
@@ -42,7 +47,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "daily_reminder.db"
-                ).addMigrations(MIGRATION_3_4, MIGRATION_4_5)
+                ).addMigrations(MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                  .build()
                 INSTANCE = instance
                 instance

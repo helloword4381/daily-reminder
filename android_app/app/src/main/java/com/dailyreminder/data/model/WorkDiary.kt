@@ -8,6 +8,7 @@ data class WorkDiary(
     val date: String = "",          // yyyy-MM-dd
     val title: String = "",
     val content: String = "",
+    val imagePath: String = "",
     val createdAt: String = "",
     val updatedAt: String = ""
 ) {

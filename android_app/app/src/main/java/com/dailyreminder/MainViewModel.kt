@@ -63,10 +63,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val diaryEntries: StateFlow<List<WorkDiaryEntity>> = diaryDao.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun addDiary(date: String, title: String, content: String) {
+    fun addDiary(date: String, title: String, content: String, imagePath: String = "") {
         viewModelScope.launch {
             val now = WorkDiary.now()
-            val entry = WorkDiary(date = date, title = title, content = content, createdAt = now, updatedAt = now)
+            val entry = WorkDiary(date = date, title = title, content = content, imagePath = imagePath, createdAt = now, updatedAt = now)
             diaryDao.upsert(WorkDiaryEntity.fromModel(entry))
         }
     }
