@@ -22,11 +22,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.TextFields
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -232,7 +231,6 @@ private fun ScanOptionsCard(
     onTorchChange: (Boolean) -> Unit,
     onAutoTextBoxChange: (Boolean) -> Unit
 ) {
-    val clipboardManager = LocalClipboardManager.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("扫描选项", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -333,6 +331,7 @@ private fun OCRCard(
     onRecognize: () -> Unit,
     onRecognizeAll: () -> Unit
 ) {
+    val clipboardManager = LocalClipboardManager.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -418,7 +417,7 @@ private fun ImageProcessCard(
             StepButtons("清晰度", options.clarity) { onOptionsChange(options.copy(clarity = it)) }
             StepButtons("画质增强", options.quality) { onOptionsChange(options.copy(quality = it)) }
             StepButtons("锐化", options.sharpen) { onOptionsChange(options.copy(sharpen = it)) }
-            OptionSwitch("文档自动校正", options.autoCorrect) { onOptionsChange(options.copy(autoCorrect = it)) }
+            OptionSwitch("自动识别裁切 / 拉正", options.autoCorrect) { onOptionsChange(options.copy(autoCorrect = it)) }
             OptionSwitch("去除阴影", options.removeShadow) { onOptionsChange(options.copy(removeShadow = it)) }
             OptionSwitch("遮挡修复", options.removeOcclusion) { onOptionsChange(options.copy(removeOcclusion = it)) }
         }

@@ -8,8 +8,10 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /**
  * 文档图像处理入口。
@@ -20,7 +22,7 @@ import kotlin.math.min
 class ImageProcessor {
 
     fun processDocument(source: Bitmap, options: ImageProcessOptions): Bitmap {
-        val base = if (options.autoCorrect) cropDocumentBounds(source) else source
+        val base = if (options.autoCorrect) autoCorrectDocument(source) else source
         val shadowFixed = if (options.removeShadow || options.removeOcclusion) normalizeLighting(base, options.removeOcclusion) else base
         val output = Bitmap.createBitmap(shadowFixed.width, shadowFixed.height, Bitmap.Config.ARGB_8888)
         val matrix = ColorMatrix().apply {
@@ -55,6 +57,189 @@ class ImageProcessor {
         canvas.drawBitmap(scaled, null, subjectRect, Paint(Paint.ANTI_ALIAS_FLAG))
         if (suit) drawSuit(canvas, spec.widthPx, spec.heightPx)
         return output
+    }
+
+    private fun autoCorrectDocument(source: Bitmap): Bitmap {
+        val quad = detectDocumentQuad(source)
+        return if (quad != null) {
+            warpDocument(source, quad)
+        } else {
+            cropDocumentBounds(source)
+        }
+    }
+
+    private fun detectDocumentQuad(source: Bitmap): Quad? {
+        val maxDetectSide = 460f
+        val scale = if (max(source.width, source.height) > maxDetectSide) {
+            maxDetectSide / max(source.width, source.height).toFloat()
+        } else {
+            1f
+        }
+        val detectWidth = max(80, (source.width * scale).toInt())
+        val detectHeight = max(80, (source.height * scale).toInt())
+        val small = Bitmap.createScaledBitmap(source, detectWidth, detectHeight, true)
+        val gray = IntArray(detectWidth * detectHeight)
+        for (y in 0 until detectHeight) {
+            for (x in 0 until detectWidth) {
+                gray[y * detectWidth + x] = brightness(small.getPixel(x, y))
+            }
+        }
+        val blurred = boxBlur(gray, detectWidth, detectHeight)
+        val magnitudes = IntArray(detectWidth * detectHeight)
+        var sum = 0.0
+        var sumSq = 0.0
+        var count = 0
+        for (y in 1 until detectHeight - 1) {
+            for (x in 1 until detectWidth - 1) {
+                val gx =
+                    -blurred[(y - 1) * detectWidth + (x - 1)] - 2 * blurred[y * detectWidth + (x - 1)] - blurred[(y + 1) * detectWidth + (x - 1)] +
+                        blurred[(y - 1) * detectWidth + (x + 1)] + 2 * blurred[y * detectWidth + (x + 1)] + blurred[(y + 1) * detectWidth + (x + 1)]
+                val gy =
+                    -blurred[(y - 1) * detectWidth + (x - 1)] - 2 * blurred[(y - 1) * detectWidth + x] - blurred[(y - 1) * detectWidth + (x + 1)] +
+                        blurred[(y + 1) * detectWidth + (x - 1)] + 2 * blurred[(y + 1) * detectWidth + x] + blurred[(y + 1) * detectWidth + (x + 1)]
+                val mag = min(255, abs(gx) + abs(gy))
+                magnitudes[y * detectWidth + x] = mag
+                sum += mag
+                sumSq += mag * mag
+                count++
+            }
+        }
+
+        val mean = sum / max(1, count)
+        val variance = (sumSq / max(1, count)) - mean * mean
+        val threshold = max(42, (mean + sqrt(max(0.0, variance)) * 1.15).toInt())
+        val marginX = max(4, detectWidth / 35)
+        val marginY = max(4, detectHeight / 35)
+
+        var tl = DetectPoint(0f, 0f, Float.MAX_VALUE)
+        var tr = DetectPoint(0f, 0f, -Float.MAX_VALUE)
+        var br = DetectPoint(0f, 0f, -Float.MAX_VALUE)
+        var bl = DetectPoint(0f, 0f, -Float.MAX_VALUE)
+        var edgeCount = 0
+
+        for (y in marginY until detectHeight - marginY) {
+            for (x in marginX until detectWidth - marginX) {
+                if (magnitudes[y * detectWidth + x] >= threshold) {
+                    edgeCount++
+                    val xf = x.toFloat()
+                    val yf = y.toFloat()
+                    val sumScore = xf + yf
+                    val diffScore = xf - yf
+                    val antiDiffScore = yf - xf
+                    if (sumScore < tl.score) tl = DetectPoint(xf, yf, sumScore)
+                    if (diffScore > tr.score) tr = DetectPoint(xf, yf, diffScore)
+                    if (sumScore > br.score) br = DetectPoint(xf, yf, sumScore)
+                    if (antiDiffScore > bl.score) bl = DetectPoint(xf, yf, antiDiffScore)
+                }
+            }
+        }
+
+        if (edgeCount < (detectWidth * detectHeight) * 0.006f) return null
+        val invScale = 1f / scale
+        val quad = Quad(
+            tl = Point2(tl.x * invScale, tl.y * invScale),
+            tr = Point2(tr.x * invScale, tr.y * invScale),
+            br = Point2(br.x * invScale, br.y * invScale),
+            bl = Point2(bl.x * invScale, bl.y * invScale)
+        )
+        return if (isValidQuad(quad, source.width, source.height)) quad else null
+    }
+
+    private fun isValidQuad(quad: Quad, width: Int, height: Int): Boolean {
+        val area = polygonArea(quad)
+        val imageArea = width.toFloat() * height
+        val minArea = imageArea * 0.16f
+        val maxArea = imageArea * 0.98f
+        if (area !in minArea..maxArea) return false
+        val top = distance(quad.tl, quad.tr)
+        val bottom = distance(quad.bl, quad.br)
+        val left = distance(quad.tl, quad.bl)
+        val right = distance(quad.tr, quad.br)
+        if (min(top, bottom) < width * 0.25f) return false
+        if (min(left, right) < height * 0.25f) return false
+        return true
+    }
+
+    private fun warpDocument(source: Bitmap, quad: Quad): Bitmap {
+        val targetWidth = max(distance(quad.tl, quad.tr), distance(quad.bl, quad.br)).toInt().coerceIn(320, 2200)
+        val targetHeight = max(distance(quad.tl, quad.bl), distance(quad.tr, quad.br)).toInt().coerceIn(320, 2600)
+        val output = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(targetWidth * targetHeight)
+        for (y in 0 until targetHeight) {
+            val v = if (targetHeight == 1) 0f else y.toFloat() / (targetHeight - 1)
+            val left = lerp(quad.tl, quad.bl, v)
+            val right = lerp(quad.tr, quad.br, v)
+            for (x in 0 until targetWidth) {
+                val u = if (targetWidth == 1) 0f else x.toFloat() / (targetWidth - 1)
+                val point = lerp(left, right, u)
+                pixels[y * targetWidth + x] = sampleBilinear(source, point.x, point.y)
+            }
+        }
+        output.setPixels(pixels, 0, targetWidth, 0, 0, targetWidth, targetHeight)
+        return output
+    }
+
+    private fun boxBlur(gray: IntArray, width: Int, height: Int): IntArray {
+        val out = gray.copyOf()
+        for (y in 1 until height - 1) {
+            for (x in 1 until width - 1) {
+                var total = 0
+                for (dy in -1..1) {
+                    for (dx in -1..1) {
+                        total += gray[(y + dy) * width + (x + dx)]
+                    }
+                }
+                out[y * width + x] = total / 9
+            }
+        }
+        return out
+    }
+
+    private fun sampleBilinear(bitmap: Bitmap, x: Float, y: Float): Int {
+        val safeX = x.coerceIn(0f, (bitmap.width - 1).toFloat())
+        val safeY = y.coerceIn(0f, (bitmap.height - 1).toFloat())
+        val x0 = safeX.toInt().coerceIn(0, bitmap.width - 1)
+        val y0 = safeY.toInt().coerceIn(0, bitmap.height - 1)
+        val x1 = (x0 + 1).coerceAtMost(bitmap.width - 1)
+        val y1 = (y0 + 1).coerceAtMost(bitmap.height - 1)
+        val wx = safeX - x0
+        val wy = safeY - y0
+        val c00 = bitmap.getPixel(x0, y0)
+        val c10 = bitmap.getPixel(x1, y0)
+        val c01 = bitmap.getPixel(x0, y1)
+        val c11 = bitmap.getPixel(x1, y1)
+        fun channel(extract: (Int) -> Int): Int {
+            val top = extract(c00) * (1 - wx) + extract(c10) * wx
+            val bottom = extract(c01) * (1 - wx) + extract(c11) * wx
+            return (top * (1 - wy) + bottom * wy).toInt().coerceIn(0, 255)
+        }
+        return Color.argb(
+            channel { Color.alpha(it) },
+            channel { Color.red(it) },
+            channel { Color.green(it) },
+            channel { Color.blue(it) }
+        )
+    }
+
+    private fun lerp(a: Point2, b: Point2, t: Float): Point2 {
+        return Point2(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)
+    }
+
+    private fun distance(a: Point2, b: Point2): Float {
+        val dx = a.x - b.x
+        val dy = a.y - b.y
+        return sqrt(dx * dx + dy * dy)
+    }
+
+    private fun polygonArea(quad: Quad): Float {
+        val points = listOf(quad.tl, quad.tr, quad.br, quad.bl)
+        var area = 0f
+        for (i in points.indices) {
+            val current = points[i]
+            val next = points[(i + 1) % points.size]
+            area += current.x * next.y - next.x * current.y
+        }
+        return abs(area) / 2f
     }
 
     private fun cropDocumentBounds(source: Bitmap): Bitmap {
@@ -193,8 +378,8 @@ class ImageProcessor {
         val output = source.copy(Bitmap.Config.ARGB_8888, true)
         val factor = amount.coerceIn(1, 3)
         val pixels = IntArray(width * height)
-        val result = pixels.copyOf()
         source.getPixels(pixels, 0, width, 0, 0, width, height)
+        val result = pixels.copyOf()
         for (y in 1 until height - 1) {
             for (x in 1 until width - 1) {
                 val index = y * width + x
@@ -219,6 +404,21 @@ class ImageProcessor {
         }
         return a or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
     }
+
+    private data class Point2(val x: Float, val y: Float)
+
+    private data class Quad(
+        val tl: Point2,
+        val tr: Point2,
+        val br: Point2,
+        val bl: Point2
+    )
+
+    private data class DetectPoint(
+        val x: Float,
+        val y: Float,
+        val score: Float
+    )
 }
 
 enum class ColorMode {
@@ -232,7 +432,7 @@ data class ImageProcessOptions(
     val quality: Int = 1,
     val sharpen: Int = 0,
     val autoCorrect: Boolean = true,
-    val removeShadow: Boolean = false,
+    val removeShadow: Boolean = true,
     val removeOcclusion: Boolean = false
 )
 
