@@ -24,8 +24,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Image as ImageIcon
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.Button
@@ -158,7 +158,7 @@ fun ScanMainScreen(
                         onClick = { pickImageLauncher.launch("image/*") },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(ImageIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text("相册导入")
                     }
