@@ -18,6 +18,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.dailyreminder.ui.screens.*
+import com.dailyreminder.ui.screens.scan.ScanMainScreen
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Home : Screen("home", "待办任务", Icons.Default.Home)
@@ -25,6 +26,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Diary : Screen("diary", "工作日记", Icons.Default.Description)
     data object Toolbox : Screen("toolbox", "工具箱", Icons.Default.Build)
     data object Settings : Screen("settings", "设置", Icons.Default.Settings)
+    data object Scan : Screen("scan", "文档扫描", Icons.Default.CameraAlt)
 }
 
 val screens = listOf(Screen.Home, Screen.History, Screen.Diary, Screen.Toolbox, Screen.Settings)
@@ -222,8 +224,12 @@ private fun AppContent(
                     records = towerRecords,
                     onSave = { viewModel.saveTowerRecord(it) },
                     onDelete = { viewModel.deleteTowerRecord(it) },
-                    onShare = { records -> viewModel.shareTowerRecords(records) }
+                    onShare = { records -> viewModel.shareTowerRecords(records) },
+                    onOpenDocumentScan = { navController.navigate(Screen.Scan.route) }
                 )
+            }
+            composable(Screen.Scan.route) {
+                ScanMainScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.Settings.route) {
                 val ctx = androidx.compose.ui.platform.LocalContext.current

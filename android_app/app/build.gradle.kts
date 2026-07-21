@@ -96,6 +96,15 @@ dependencies {
     // Core
     implementation("androidx.core:core-ktx:1.13.1")
 
+    // 文档扫描：CameraX + ML Kit OCR
+    implementation("androidx.camera:camera-core:1.4.2")
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+    implementation("androidx.documentfile:documentfile:1.0.1")
+
     // WorkManager (for background sync)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 }

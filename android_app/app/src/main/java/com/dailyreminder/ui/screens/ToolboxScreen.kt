@@ -41,7 +41,8 @@ fun ToolboxScreen(
     records: List<TowerCalcEntity>,
     onSave: (TowerCalcEntity) -> Unit,
     onDelete: (String) -> Unit,
-    onShare: ((List<TowerCalcEntity>) -> Unit)? = null
+    onShare: ((List<TowerCalcEntity>) -> Unit)? = null,
+    onOpenDocumentScan: () -> Unit = {}
 ) {
     var page by remember { mutableIntStateOf(0) }
     var tab by remember { mutableIntStateOf(0) }
@@ -62,7 +63,10 @@ fun ToolboxScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (page == 0) {
-                ToolboxHome(onOpenTowerCalc = { page = 1; tab = 0 })
+                ToolboxHome(
+                    onOpenTowerCalc = { page = 1; tab = 0 },
+                    onOpenDocumentScan = onOpenDocumentScan
+                )
             } else {
                 TabRow(selectedTabIndex = tab) {
                     Tab(selected = tab == 0, onClick = { tab = 0 },
@@ -82,7 +86,10 @@ fun ToolboxScreen(
 }
 
 @Composable
-fun ToolboxHome(onOpenTowerCalc: () -> Unit) {
+fun ToolboxHome(
+    onOpenTowerCalc: () -> Unit,
+    onOpenDocumentScan: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -110,6 +117,32 @@ fun ToolboxHome(onOpenTowerCalc: () -> Unit) {
                     Text("墩柱（扣塔）偏位计算", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "偏位 + 方位角分析",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onOpenDocumentScan
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.CameraAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text("文档扫描", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "拍照 / 相册导入、OCR、导出分享",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

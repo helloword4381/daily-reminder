@@ -1,0 +1,144 @@
+package com.dailyreminder.data.scanner
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Rect
+import android.graphics.pdf.PdfDocument
+import android.net.Uri
+import android.os.Environment
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+class FileExporter(private val context: Context) {
+
+    private val exportDir: File
+        get() = File(
+            context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS),
+            "scans"
+        ).apply { mkdirs() }
+
+    fun exportToPDF(bitmap: Bitmap, fileName: String = nextName("扫描件", "pdf")): File {
+        val file = File(exportDir, fileName)
+        val document = PdfDocument()
+        val pageWidth = 595
+        val pageHeight = 842
+        val page = document.startPage(
+            PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create()
+        )
+        val margin = 32
+        val target = fitCenter(
+            bitmapWidth = bitmap.width,
+            bitmapHeight = bitmap.height,
+            maxWidth = pageWidth - margin * 2,
+            maxHeight = pageHeight - margin * 2,
+            left = margin,
+            top = margin
+        )
+        page.canvas.drawBitmap(bitmap, null, target, null)
+        document.finishPage(page)
+        FileOutputStream(file).use { document.writeTo(it) }
+        document.close()
+        return file
+    }
+
+    fun exportToWord(ocrText: String, fileName: String = nextName("识别文字", "doc")): File {
+        val file = File(exportDir, fileName)
+        val html = """
+            <html>
+            <head><meta charset="utf-8"></head>
+            <body>
+            <h2>扫描 OCR 识别结果</h2>
+            ${escapeHtml(ocrText).lineSequence().joinToString("<br/>")}
+            </body>
+            </html>
+        """.trimIndent()
+        file.writeText(html, Charsets.UTF_8)
+        return file
+    }
+
+    fun exportToExcel(lines: List<String>, fileName: String = nextName("识别表格", "csv")): File {
+        val file = File(exportDir, fileName)
+        val csv = buildString {
+            append('\uFEFF')
+            if (lines.isEmpty()) {
+                appendLine("内容")
+            } else {
+                lines.forEach { line ->
+                    val cells = line.split(Regex("\\s{2,}|\\t+"))
+                        .ifEmpty { listOf(line) }
+                        .joinToString(",") { cell -> csvCell(cell) }
+                    appendLine(cells)
+                }
+            }
+        }
+        file.writeText(csv, Charsets.UTF_8)
+        return file
+    }
+
+    fun shareFile(file: File): Intent {
+        val uri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file
+        )
+        return Intent(Intent.ACTION_SEND).apply {
+            type = mimeType(file)
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    fun uriFor(file: File): Uri = FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file
+    )
+
+    private fun fitCenter(
+        bitmapWidth: Int,
+        bitmapHeight: Int,
+        maxWidth: Int,
+        maxHeight: Int,
+        left: Int,
+        top: Int
+    ): Rect {
+        val scale = minOf(maxWidth / bitmapWidth.toFloat(), maxHeight / bitmapHeight.toFloat())
+        val width = (bitmapWidth * scale).toInt()
+        val height = (bitmapHeight * scale).toInt()
+        val x = left + (maxWidth - width) / 2
+        val y = top + (maxHeight - height) / 2
+        return Rect(x, y, x + width, y + height)
+    }
+
+    private fun nextName(prefix: String, ext: String): String {
+        val time = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.CHINA).format(Date())
+        return "${prefix}_$time.$ext"
+    }
+
+    private fun mimeType(file: File): String = when (file.extension.lowercase(Locale.ROOT)) {
+        "pdf" -> "application/pdf"
+        "doc" -> "application/msword"
+        "csv" -> "text/csv"
+        else -> "application/octet-stream"
+    }
+
+    private fun escapeHtml(value: String): String = value
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+
+    private fun csvCell(value: String): String {
+        val escaped = value.replace("\"", "\"\"")
+        return if (escaped.contains(',') || escaped.contains('"') || escaped.contains('\n')) {
+            "\"$escaped\""
+        } else {
+            escaped
+        }
+    }
+}
