@@ -1,6 +1,7 @@
 package com.dailyreminder.ui.screens.scan
 
 import android.os.Environment
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -42,6 +43,7 @@ import java.util.Locale
 
 @Composable
 fun CameraScreen(
+    torchEnabled: Boolean,
     onImageCaptured: (android.net.Uri) -> Unit,
     onBack: () -> Unit,
     onError: (String) -> Unit
@@ -54,6 +56,7 @@ fun CameraScreen(
         }
     }
     val imageCaptureState = remember { mutableStateOf<ImageCapture?>(null) }
+    val cameraState = remember { mutableStateOf<Camera?>(null) }
 
     LaunchedEffect(previewView) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
@@ -68,19 +71,30 @@ fun CameraScreen(
                     .build()
                 runCatching {
                     cameraProvider.unbindAll()
-                    cameraProvider.bindToLifecycle(
+                    val camera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
                         preview,
                         imageCapture
                     )
                     imageCaptureState.value = imageCapture
+                    cameraState.value = camera
+                    camera.cameraControl.enableTorch(torchEnabled)
                 }.onFailure { error ->
                     onError("相机启动失败：${error.message.orEmpty()}")
                 }
             },
             ContextCompat.getMainExecutor(context)
         )
+    }
+
+    LaunchedEffect(torchEnabled) {
+        cameraState.value?.cameraControl?.enableTorch(torchEnabled)
+        imageCaptureState.value?.flashMode = if (torchEnabled) {
+            ImageCapture.FLASH_MODE_ON
+        } else {
+            ImageCapture.FLASH_MODE_OFF
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
