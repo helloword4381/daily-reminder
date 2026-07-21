@@ -22,11 +22,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
@@ -60,12 +58,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dailyreminder.data.scanner.ColorMode
-import com.dailyreminder.data.scanner.IdPhotoSpec
 import com.dailyreminder.data.scanner.ImageProcessOptions
 import com.dailyreminder.utils.PermissionHelper
 
@@ -220,17 +219,6 @@ fun ScanMainScreen(
                     hasText = uiState.ocrText.isNotBlank(),
                     isBusy = uiState.isBusy,
                     onExportPdf = viewModel::exportPdf,
-                    onExportWord = viewModel::exportWord,
-                    onExportExcel = viewModel::exportExcel
-                )
-            }
-
-            item {
-                IdPhotoCard(
-                    spec = uiState.idPhotoSpec,
-                    enabled = uiState.currentBitmap != null && !uiState.isBusy,
-                    onSpecChange = viewModel::setIdPhotoSpec,
-                    onCreate = viewModel::createIdPhoto
                 )
             }
         }
@@ -244,6 +232,7 @@ private fun ScanOptionsCard(
     onTorchChange: (Boolean) -> Unit,
     onAutoTextBoxChange: (Boolean) -> Unit
 ) {
+    val clipboardManager = LocalClipboardManager.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("扫描选项", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -381,15 +370,25 @@ private fun OCRCard(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
-                    Text(
-                        text = text,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(180.dp)
-                            .verticalScroll(rememberScrollState())
-                            .padding(12.dp),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                    Column {
+                        Text(
+                            text = text,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                                .verticalScroll(rememberScrollState())
+                                .padding(12.dp),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        OutlinedButton(
+                            onClick = { clipboardManager.setText(AnnotatedString(text)) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text("复制 OCR 文字")
+                        }
+                    }
                 }
             }
         }
@@ -450,9 +449,7 @@ private fun ExportCard(
     hasImage: Boolean,
     hasText: Boolean,
     isBusy: Boolean,
-    onExportPdf: () -> Unit,
-    onExportWord: () -> Unit,
-    onExportExcel: () -> Unit
+    onExportPdf: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -469,66 +466,14 @@ private fun ExportCard(
             ExportButton(
                 icon = Icons.Default.PictureAsPdf,
                 title = "导出 PDF",
-                subtitle = "将扫描图像保存为 PDF",
+                subtitle = "将单页/多页扫描图像合成为 PDF",
                 enabled = hasImage && !isBusy,
                 onClick = onExportPdf
-            )
-            ExportButton(
-                icon = Icons.Default.Description,
-                title = "导出 Word",
-                subtitle = if (hasText) "导出 OCR 文字为 .doc" else "建议先完成 OCR 识别",
-                enabled = !isBusy,
-                onClick = onExportWord
-            )
-            ExportButton(
-                icon = Icons.Default.TableChart,
-                title = "导出 Excel",
-                subtitle = "按行生成 CSV，可用 Excel 打开",
-                enabled = !isBusy,
-                onClick = onExportExcel
             )
         }
     }
 }
 
-@Composable
-private fun IdPhotoCard(
-    spec: IdPhotoSpec,
-    enabled: Boolean,
-    onSpecChange: (IdPhotoSpec) -> Unit,
-    onCreate: () -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(8.dp))
-                Text("证件照生成", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-            Text(
-                "支持自拍或相册导入，自动居中裁切为常用 1 寸 / 2 寸比例。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IdPhotoSpec.values().forEach { item ->
-                    FilterChip(
-                        selected = spec == item,
-                        onClick = { onSpecChange(item) },
-                        label = { Text(item.label) }
-                    )
-                }
-            }
-            Button(
-                onClick = onCreate,
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("生成${spec.label}证件照")
-            }
-        }
-    }
-}
 
 @Composable
 private fun ExportButton(

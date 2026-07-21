@@ -44,6 +44,7 @@ import java.util.Locale
 @Composable
 fun CameraScreen(
     torchEnabled: Boolean,
+    useFrontCamera: Boolean = false,
     onImageCaptured: (android.net.Uri) -> Unit,
     onBack: () -> Unit,
     onError: (String) -> Unit
@@ -58,7 +59,7 @@ fun CameraScreen(
     val imageCaptureState = remember { mutableStateOf<ImageCapture?>(null) }
     val cameraState = remember { mutableStateOf<Camera?>(null) }
 
-    LaunchedEffect(previewView) {
+    LaunchedEffect(previewView, useFrontCamera) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         cameraProviderFuture.addListener(
             {
@@ -69,11 +70,16 @@ fun CameraScreen(
                 val imageCapture = ImageCapture.Builder()
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .build()
+                val selector = if (useFrontCamera) {
+                    CameraSelector.DEFAULT_FRONT_CAMERA
+                } else {
+                    CameraSelector.DEFAULT_BACK_CAMERA
+                }
                 runCatching {
                     cameraProvider.unbindAll()
                     val camera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
-                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        selector,
                         preview,
                         imageCapture
                     )

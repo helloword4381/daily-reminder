@@ -42,7 +42,8 @@ fun ToolboxScreen(
     onSave: (TowerCalcEntity) -> Unit,
     onDelete: (String) -> Unit,
     onShare: ((List<TowerCalcEntity>) -> Unit)? = null,
-    onOpenDocumentScan: () -> Unit = {}
+    onOpenDocumentScan: () -> Unit = {},
+    onOpenIdPhoto: () -> Unit = {}
 ) {
     var page by remember { mutableIntStateOf(0) }
     var tab by remember { mutableIntStateOf(0) }
@@ -65,7 +66,8 @@ fun ToolboxScreen(
             if (page == 0) {
                 ToolboxHome(
                     onOpenTowerCalc = { page = 1; tab = 0 },
-                    onOpenDocumentScan = onOpenDocumentScan
+                    onOpenDocumentScan = onOpenDocumentScan,
+                    onOpenIdPhoto = onOpenIdPhoto
                 )
             } else {
                 TabRow(selectedTabIndex = tab) {
@@ -88,7 +90,8 @@ fun ToolboxScreen(
 @Composable
 fun ToolboxHome(
     onOpenTowerCalc: () -> Unit,
-    onOpenDocumentScan: () -> Unit
+    onOpenDocumentScan: () -> Unit,
+    onOpenIdPhoto: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -143,6 +146,32 @@ fun ToolboxHome(
                     Text("文档扫描", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "拍照 / 相册导入、OCR、导出分享",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onOpenIdPhoto
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Person,
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text("证件照生成", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "1 寸 / 2 寸、背景色、自拍或拍别人",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

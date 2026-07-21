@@ -9,9 +9,7 @@ import android.os.Build
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.dailyreminder.data.scanner.ColorMode
 import com.dailyreminder.data.scanner.FileExporter
-import com.dailyreminder.data.scanner.IdPhotoSpec
 import com.dailyreminder.data.scanner.ImageProcessor
 import com.dailyreminder.data.scanner.ImageProcessOptions
 import com.dailyreminder.data.scanner.OCRProcessor
@@ -35,8 +33,6 @@ data class ScanUiState(
     val ocrText: String = "",
     val ocrLines: List<String> = emptyList(),
     val exportedFile: File? = null,
-    val idPhotoFile: File? = null,
-    val idPhotoSpec: IdPhotoSpec = IdPhotoSpec.ONE_INCH,
     val isBusy: Boolean = false,
     val message: String? = null
 ) {
@@ -85,10 +81,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
     fun updateProcessOptions(options: ImageProcessOptions) {
         _uiState.update { it.copy(processOptions = options) }
         reprocessPages()
-    }
-
-    fun setIdPhotoSpec(spec: IdPhotoSpec) {
-        _uiState.update { it.copy(idPhotoSpec = spec) }
     }
 
     fun onImageSelected(uri: Uri) {
@@ -255,18 +247,6 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                 ocrText = pages.joinToString("\n\n") { item -> item.ocrText }.trim(),
                 ocrLines = pages.flatMap { item -> item.ocrLines }
             )
-        }
-    }
-
-    fun createIdPhoto() {
-        val bitmap = _uiState.value.currentBitmap ?: run {
-            _uiState.update { it.copy(message = "请先自拍或导入一张照片") }
-            return
-        }
-        val spec = _uiState.value.idPhotoSpec
-        export("正在生成${spec.label}证件照...") {
-            val idPhoto = imageProcessor.createIdPhoto(bitmap, spec)
-            fileExporter.exportToPDF(listOf(idPhoto), "证件照_${spec.label}_${System.currentTimeMillis()}.pdf")
         }
     }
 

@@ -95,6 +95,14 @@ class FileExporter(private val context: Context) {
         return file
     }
 
+    fun exportImage(bitmap: Bitmap, fileName: String = nextName("证件照", "jpg")): File {
+        val file = File(exportDir, fileName)
+        FileOutputStream(file).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out)
+        }
+        return file
+    }
+
     fun shareFile(file: File): Intent {
         val uri = FileProvider.getUriForFile(
             context,
@@ -138,6 +146,7 @@ class FileExporter(private val context: Context) {
     private fun mimeType(file: File): String = when (file.extension.lowercase(Locale.ROOT)) {
         "pdf" -> "application/pdf"
         "doc" -> "application/msword"
+        "jpg", "jpeg" -> "image/jpeg"
         "csv" -> "text/csv"
         else -> "application/octet-stream"
     }
